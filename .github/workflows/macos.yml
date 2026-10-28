@@ -1,0 +1,99 @@
+name: macOS app
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and test (Apple Silicon)
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      MT_TRAINER_BUILD_DIR: ${{ runner.temp }}/RE2TrainerBuild
+      MT_RELEASE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify native architecture
+        run: |
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+      - name: Build and run local regression checks
+        run: ./script/build_and_run.sh --build-only
+      - name: Package and verify app round trip
+        run: ./script/package_release.sh
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: macOS-arm64
+          path: ${{ runner.temp }}/RE2TrainerBuild/Release/*
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: Publish current app
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: macOS-arm64
+          path: release
+      - name: Publish latest verified build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TRAINER_COMMIT: ${{ github.sha }}
+          TRAINER_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum --check SHA256SUMS
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          info = json.loads(Path('release-info.json').read_text())
+          assert info['commit'] == os.environ['TRAINER_COMMIT']
+          assert info['architecture'] == 'arm64'
+          Path('release-title.txt').write_text(f"Resident Evil Trainer {info['version']} · Build {info['build']}")
+          Path('release-notes.md').write_text(
+              f"Aktueller automatisch geprüfter Build für Apple Silicon und macOS {info['minimumMacOS']}+.\n\n"
+              f"Quellstand: {info['commit']}\n\n"
+              "ZIP entpacken und Resident Evil Trainer.app öffnen. ⌘ + ^ öffnet das Overlay samt Mausbedienung.\n\n"
+              "Enthält RE2, RE3, RE4, RE7 und Village einschließlich Rose. Unterstützte Spielversionen und Bedienung stehen im README.\n\n"
+              "Ad-hoc signiert, nicht Apple-notarisiert. GitHub prüft lokale Regressionen und die Verpackung; dort werden keine Spiele gestartet.\n\n"
+              "Dieses Latest-Release wird nach erfolgreichen Änderungen an main ersetzt. SHA256SUMS prüft ZIP und Buildinformationen.\n"
+          )
+          PY
+          # A queued older commit must never replace a newer main build.
+          current_main="$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$current_main" != "$TRAINER_COMMIT" ]]; then
+            echo 'Superseded by a newer main commit; publication skipped.'
+            exit 0
+          fi
+          title="$(cat release-title.txt)"
+          if gh release view latest --json id >/dev/null 2>&1; then
+            # Only the rolling release tag moves; main is never force-pushed.
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/latest" -f sha="$TRAINER_COMMIT" -F force=true >/dev/null
+            gh release upload latest Resident-Evil-Trainer-macOS-arm64.zip release-info.json SHA256SUMS --clobber
+            gh release edit latest --title "$title" --notes-file release-notes.md --latest
+          else
+            gh release create latest Resident-Evil-Trainer-macOS-arm64.zip release-info.json SHA256SUMS \
+              --target "$TRAINER_COMMIT" --title "$title" --notes-file release-notes.md --latest
+          fi

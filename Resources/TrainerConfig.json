@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "app": {
+    "name": "Resident Evil Trainer",
+    "bundleIdentifier": "local.mactrainer.re2",
+    "version": "0.9.0",
+    "build": "77"
+  },
+  "profiles": [
+    {
+      "id": "re2-mac-1.0.2",
+      "name": "Resident Evil 2 1.0.2 · arm64",
+      "enabled": true,
+      "bundleIdentifier": "jp.co.capcom.RE2US",
+      "executable": "Resident Evil 2",
+      "uuids": [
+        "4C4C44ED-5555-3144-A15E-9285028AFD15"
+      ],
+      "teamIdentifier": "4H8VTS9D6W",
+      "version": "1.0.2"
+    },
+    {
+      "id": "re3-mac-1.0.0",
+      "name": "Resident Evil 3 1.0.0 · arm64",
+      "enabled": true,
+      "bundleIdentifier": "jp.co.capcom.RE3US",
+      "executable": "Resident Evil 3",
+      "uuids": [
+        "4C4C4461-5555-3144-A174-EA43301DB10B"
+      ],
+      "teamIdentifier": "4H8VTS9D6W",
+      "version": "1.0.0"
+    },
+    {
+      "id": "re4-mac-1.0.7",
+      "name": "Resident Evil 4 1.0.7 · arm64",
+      "enabled": true,
+      "bundleIdentifier": "jp.co.capcom.RE4US",
+      "executable": "Resident Evil 4",
+      "uuids": [
+        "4C4C44CF-5555-3144-A161-D64EFB82E79F"
+      ],
+      "teamIdentifier": "4H8VTS9D6W",
+      "version": "1.0.7"
+    },
+    {
+      "id": "re7-mac-1.0.4",
+      "name": "Resident Evil 7 biohazard 1.0.4 · arm64",
+      "enabled": true,
+      "bundleIdentifier": "jp.co.capcom.RE7US",
+      "executable": "RESIDENT EVIL 7 biohazard",
+      "uuids": [
+        "4C4C4466-5555-3144-A1F6-0D461A1E2960"
+      ],
+      "teamIdentifier": "4H8VTS9D6W",
+      "version": "1.0.4"
+    },
+    {
+      "id": "re8-mac-1.1.8",
+      "name": "Resident Evil Village 1.1.8 · arm64",
+      "enabled": true,
+      "bundleIdentifier": "jp.co.capcom.VillageUS",
+      "executable": "Resident Evil Village",
+      "uuids": [
+        "4C4C44EB-5555-3144-A1A1-B2C9A3FC8945"
+      ],
+      "teamIdentifier": "4H8VTS9D6W",
+      "version": "1.1.8"
+    }
+  ]
+}

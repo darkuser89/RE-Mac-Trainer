@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "reference": "User-supplied screenshot, Resident Evil 2 Plus 20 Trainer",
+  "features": [
+    {
+      "id": "health",
+      "title": "Unendliche Gesundheit",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.HitPointController\\.(get_CurrentHitPoint|set_CurrentHitPoint|get_Invincible|set_Invincible)$"
+      ]
+    },
+    {
+      "id": "ammo",
+      "title": "Unendliche Munition",
+      "metadataPatterns": [
+        "^app\\.ropeway\\..*(InfiniteBullet|UnlimitedAmmo|InfinityBullet|InfinityAmmo)",
+        "^app\\.ropeway\\.gamemastering\\.InventoryManager\\..*(Bullet|Ammo)"
+      ]
+    },
+    {
+      "id": "noReload",
+      "title": "Kein Nachladen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.implement\\.Gun\\..*(Bullet|Reload)"
+      ]
+    },
+    {
+      "id": "inkRibbons",
+      "title": "Unendliche Farbbänder",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.InventoryManager\\..*TypeWriterRemainCount",
+        "^app\\.ropeway\\.fsmv2\\.ReduceInkRibbon\\."
+      ]
+    },
+    {
+      "id": "knife",
+      "title": "Unendliche Messerhaltbarkeit",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.InventoryManager\\.getSubWeaponVital$",
+        "^app\\.ropeway\\.inventory\\.Slot\\.(get_RemainingVital|get_MaxNumber)$",
+        "^app\\.ropeway\\.EquipmentDefine\\.getCategory$"
+      ]
+    },
+    {
+      "id": "accuracy",
+      "title": "Hohe Zielgenauigkeit",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.implement\\.Gun\\.(get_ReticleParam|get_DeviateParam)$",
+        "^app\\.ropeway\\.ReticleParam\\.(get_PointRange|get_ShootPoint|get_MovePoint|get_WatchPoint)$",
+        "^app\\.ropeway\\.DeviateParam\\.get_(Translation|Rotation)[XYZ]Range$"
+      ]
+    },
+    {
+      "id": "recoil",
+      "title": "Kein Rückstoß",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.RecoilParam\\.(get_RecoilRate|_RecoilRate|get_RecoilDampRate|_RecoilDampRate)$"
+      ]
+    },
+    {
+      "id": "speed",
+      "title": "Hohes Bewegungstempo",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.MotionSpeedController\\.(get_PlaySpeed|set_PlaySpeed)$",
+        "^app\\.ropeway\\.survivor\\.SurvivorMotionSpeedController\\.(get_Condition|getDefaultSpeed)$"
+      ]
+    },
+    {
+      "id": "slowMotion",
+      "title": "Zeitlupe",
+      "metadataPatterns": [
+        "^via\\.(Application|Scene|GameObject|Timer)\\..*TimeScale",
+        "^app\\.ropeway\\..*(set_TimeScale|set_GameTimeScale)$"
+      ]
+    },
+    {
+      "id": "oneHit",
+      "title": "Gegner mit einem Treffer besiegen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.EnemyController\\.(get_HitPoint|set_HitPoint)$",
+        "^app\\.ropeway\\.EnemyHitPointController\\.addWince$"
+      ]
+    },
+    {
+      "id": "tyrant",
+      "title": "Tyrant mit einem Treffer zu Boden und am Aufstehen hindern",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.enemy\\.em6200\\.Em6200Think\\.(get_IsSleeping|get_SleepTimer|set_SleepTimer)$",
+        "^app\\.ropeway\\.EnemyController\\.get_Think$"
+      ]
+    },
+    {
+      "id": "highlight",
+      "title": "Gegenstände und Interaktionsobjekte hervorheben",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gimmick\\.action\\.InteractManager\\.LockObj\\.RegisteredKeys$",
+        "^app\\.ropeway\\.gimmick\\.action\\.TriggerKey\\.requestDrawObjectIcon$",
+        "^app\\.ropeway\\.gui\\.FloatIconBehavior\\.(get_RequestDraw|lateUpdate)$"
+      ]
+    },
+    {
+      "id": "backpack",
+      "title": "Maximale Rucksackgröße",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.InventoryManager\\..*(Slot|Expand|Size)"
+      ]
+    },
+    {
+      "id": "gameTime",
+      "title": "Spielzeit zurücksetzen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.RecordManager\\..*PlayTime"
+      ]
+    },
+    {
+      "id": "saveCount",
+      "title": "Speicherzähler zurücksetzen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.RecordManager\\..*CurrentSaveCount"
+      ]
+    },
+    {
+      "id": "countdown",
+      "title": "Countdown anhalten",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gui\\.CountDownBehavior\\..*CurrentTimerFrame"
+      ]
+    },
+    {
+      "id": "itemBoxCount",
+      "title": "Anzahl geöffneter Itemboxen zurücksetzen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.RecordManager\\..*(OpenItemBox|ItemBoxCount)"
+      ]
+    },
+    {
+      "id": "healingCount",
+      "title": "Anzahl verwendeter Heilgegenstände zurücksetzen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.RecordManager\\..*(Recovery|Heal|UseItem)"
+      ]
+    },
+    {
+      "id": "steps",
+      "title": "Gesamtschritte zurücksetzen",
+      "metadataPatterns": [
+        "^app\\.ropeway\\.gamemastering\\.RecordManager\\..*(Step|Walk)"
+      ]
+    },
+    {
+      "id": "boards",
+      "title": "Unendliche Holzbretter",
+      "metadataPatterns": [
+        "^app\\.ropeway\\..*(Wooden|WoodBoard|Barricade)"
+      ]
+    }
+  ]
+}
