@@ -35,7 +35,7 @@ Cheats gesperrt, bis die lokale Spielfigur bestätigt ist.
 
 Ab Build78 nutzen Launcher und schwebendes Overlay natives Liquid Glass unter
 macOS26 oder neuer. macOS14/15 verwenden die native Vibrancy-Darstellung.
-„Transparenz reduzieren“ wird auch bei Änderungen während der Laufzeit beachtet.
+„Transparenz reduzieren“ und erhöhter Kontrast werden auch bei Änderungen während der Laufzeit beachtet.
 Das Overlay behält im verborgenen Zustand die aktuellen Daten, baut seine
 Zeilendarstellung aber erst beim Öffnen auf. Unveränderte sichtbare Zeilen werden
 wiederverwendet; feste Texthöhen werden pro Overlay einmal berechnet.
@@ -256,6 +256,10 @@ Fernmarkierungen verändern keine Benutzungsreichweite. F12 nimmt Einmalaktionen
 und dauerhafte Freischaltungen nicht zurück.
 
 ## Bauen
+
+Zum Kompilieren wird Xcode26 oder neuer mit macOS26-SDK benötigt.
+Die erzeugte App behält macOS14 als Mindestversion; die neuen APIs sind
+versionsgeschützt und auf älteren Systemen durch Vibrancy ersetzt.
 
 `./script/build_and_run.sh --build-only` erstellt die App und führt die lokalen
 Metadaten-, Bridge-, Ledger-, UI- und Hotkey-Regressionstests aus.
