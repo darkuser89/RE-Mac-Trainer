@@ -30,7 +30,7 @@ mkdir -p "$CANDIDATE/Contents/MacOS" "$CANDIDATE/Contents/Resources"
 FLAGS=(-arch arm64 -mmacosx-version-min=14.0 -fobjc-arc -O1 -Wall -Wextra -Werror "-ffile-prefix-map=$ROOT=." -I"$ROOT/Sources")
 ENGINE=("$ROOT/Sources/GameProfile.m" "$ROOT/Sources/MemoryAccess.m" "$ROOT/Sources/RE2Engine.m" "$ROOT/Sources/RE4Engine.m" "$ROOT/Sources/RE7Engine.m" "$ROOT/Sources/RE8Engine.m")
 CORE=("$ROOT/Sources/LocalControl.m" "$ROOT/Sources/CheatPreferences.m" "$ROOT/Sources/TrainerFeatures.m" "$ROOT/Sources/RE4Features.m" "$ROOT/Sources/RE7Features.m" "$ROOT/Sources/GameAdapter.m" "$ROOT/Sources/GameBridge.m" "$ROOT/Sources/RE2Adapter.m" "$ROOT/Sources/RE3Adapter.m" "$ROOT/Sources/RE4Adapter.m" "$ROOT/Sources/RE7Adapter.m" "$ROOT/Sources/RE2Ownership.m" "$ROOT/Sources/RE7Ownership.m" "$ROOT/Sources/RE8Ownership.m" "$ROOT/Sources/RE8Adapter.m" "$ROOT/Sources/RE8Features.m")
-UI=("$ROOT/Sources/Overlay.m" "$ROOT/Sources/OverlaySettings.m" "$ROOT/Sources/OverlayShortcuts.m")
+UI=("$ROOT/Sources/TrainerMaterial.m" "$ROOT/Sources/Overlay.m" "$ROOT/Sources/OverlaySettings.m" "$ROOT/Sources/OverlayShortcuts.m")
 FRAMEWORKS=(-framework AppKit -framework Security -framework QuartzCore -framework Carbon)
 python3 -B "$ROOT/Tests/test_re2_metadata.py"
 xcrun clang "${FLAGS[@]}" -framework Foundation -dynamiclib "$ROOT/Sources/RE2ReadOnlyProbe.m" "$ROOT/Sources/RE4ReadOnlyProbe.m" "$ROOT/Sources/RE7ReadOnlyProbe.m" "$ROOT/Sources/RE8ReadOnlyProbe.m" -install_name @rpath/RE2ReadOnlyProbe.dylib -o "$CANDIDATE/Contents/Resources/RE2ReadOnlyProbe.dylib"
@@ -62,8 +62,20 @@ fi
 codesign --force --sign - --options runtime --timestamp=none "$CANDIDATE"
 codesign --verify --deep --strict "$CANDIDATE"
 "$CANDIDATE/Contents/MacOS/MacTrainer" --check-launcher
-xcrun clang "${FLAGS[@]}" "${FRAMEWORKS[@]}" "${ENGINE[@]}" "${CORE[@]}" "${UI[@]}" "$ROOT/Tests/Fixtures/TestAdapter.m" "$ROOT/Tests/RE7OwnershipTests.m" "$ROOT/Tests/LocalControlTests.m" "$ROOT/Tests/TestMain.m" -I"$ROOT/Tests/Fixtures" -o "$STAGE/TemplateTests"
+xcrun clang "${FLAGS[@]}" "${FRAMEWORKS[@]}" "${ENGINE[@]}" "${CORE[@]}" "${UI[@]}" "$ROOT/Tests/Fixtures/TestAdapter.m" "$ROOT/Tests/RE7OwnershipTests.m" "$ROOT/Tests/LocalControlTests.m" "$ROOT/Tests/PresentationTests.m" "$ROOT/Tests/TestMain.m" -I"$ROOT/Tests/Fixtures" -o "$STAGE/TemplateTests"
 "$STAGE/TemplateTests" "$ROOT/Resources/TrainerConfig.json"
+# Fresh processes exercise each real bundle-selected catalog without games.
+FIXTURE="$STAGE/PresentationFixture.app"
+mkdir -p "$FIXTURE/Contents/MacOS"
+mv "$STAGE/TemplateTests" "$FIXTURE/Contents/MacOS/TemplateTests"
+for profile in jp.co.capcom.RE2US jp.co.capcom.RE3US jp.co.capcom.RE4US jp.co.capcom.RE7US jp.co.capcom.VillageUS; do
+    python3 - "$FIXTURE/Contents/Info.plist" "$profile" <<'FIXTURE_PLIST'
+from pathlib import Path
+import plistlib,sys
+Path(sys.argv[1]).write_bytes(plistlib.dumps({'CFBundleIdentifier':sys.argv[2],'CFBundleExecutable':'TemplateTests','CFBundlePackageType':'APPL'}))
+FIXTURE_PLIST
+    "$FIXTURE/Contents/MacOS/TemplateTests" --presentation
+done
 python3 - "$CANDIDATE" "$APP" "$STAGE/previous.app" <<'INSTALL'
 from pathlib import Path
 import os,sys,shutil,plistlib

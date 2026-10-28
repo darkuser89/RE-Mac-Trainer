@@ -4,7 +4,7 @@
     "name": "Resident Evil Trainer",
     "bundleIdentifier": "local.mactrainer.re2",
     "version": "0.9.0",
-    "build": "77"
+    "build": "78"
   },
   "profiles": [
     {

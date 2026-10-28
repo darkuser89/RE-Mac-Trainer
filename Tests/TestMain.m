@@ -8,6 +8,7 @@
 #import "GameProfile.h"
 #import "MemoryAccess.h"
 #import "Overlay.h"
+#import "TrainerMaterial.h"
 #import "RE2Adapter.h"
 #import "RE2Bindings.h"
 #import "RE2Ownership.h"
@@ -491,14 +492,14 @@ static void uiTests(void){
         for(NSInteger i=0;i<RE2FeatureCount;i++){
             if(!RE2FeatureInfoAt(i)->implemented)continue;
             r.featureHandler=^(RE2Feature f){NSCAssert(f==i,@"correct click target");clicks++;};
-            NSView *row=r.panel.subviews[i];NSInteger before=clicks;
+            NSView *row=((MTTrainerMaterial *)r.panel).contentView.subviews[i];NSInteger before=clicks;
             NSCAssert([r handleMouseEvent:mouse(w,row,NSMakePoint(244,10),NSEventTypeLeftMouseDown)],@"click consumed");
             NSCAssert([r handleMouseEvent:mouse(w,row,NSMakePoint(244,10),NSEventTypeLeftMouseUp)],@"release consumed");NSCAssert(clicks==before+1,@"one dispatch per click");
         }
     }
     [r applyOverlayOptions:@{@"visible":@YES,@"mouse":@NO}];NSCAssert(r.wantsMouseInteraction,@"legacy mouse-off preferences cannot leave visible UI unclickable");
     r.featureHandler=^(RE2Feature f){NSCAssert(f==RE2FeatureHealth,@"automatic mouse reaches the intended cheat");clicks++;};NSInteger before=clicks;
-    NSView *firstRow=r.panel.subviews[0];
+    NSView *firstRow=((MTTrainerMaterial *)r.panel).contentView.subviews[0];
     NSCAssert([r handleMouseEvent:mouse(w,firstRow,NSMakePoint(244,10),NSEventTypeLeftMouseDown)] && clicks==before+1,@"visible UI accepts a click without a separate mouse shortcut");
     [r togglePanel:nil];NSCAssert(r.panel.hidden && !r.wantsMouseInteraction,@"hide gives game input back");
     NSCAssert([r handleMouseEvent:mouse(w,firstRow,NSMakePoint(244,10),NSEventTypeLeftMouseUp)],@"a click begun in UI never leaks its release to the game after hiding");
@@ -558,5 +559,7 @@ static void re4MathTests(void){
 }
 void RE7RunOwnershipTests(void);
 void MTControlRunTests(void);
+void MTPresentationRunTests(void);
 int main(int argc,const char *argv[]){@autoreleasepool{
+    if(argc==2 && !strcmp(argv[1],"--presentation")){MTPresentationRunTests();return 0;}
     RE7RunOwnershipTests();NSCAssert(argc==2,@"config argument");re4MathTests();re2MouseTests();re2EnemyRegistrationTests();re2SaveCountTests();portableSafeTests();re2SpeedTests();re2ContinuousTempoTests();otherGameMouseTests();re4MouseTests();bridgeTests();MTControlRunTests();selectionTests();ledgerTests();highlightStopTests();profileTests([NSString stringWithUTF8String:argv[1]]);uiTests();puts("RE2/3/4/7 checks passed: shared originals, owner/context transitions, readback failures, stale actions, loading/F12, network gate, UI, shortcuts, profiles, bounded memory and reward/time arithmetic.");}return 0;}

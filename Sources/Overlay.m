@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #import "Overlay.h"
+#import "TrainerMaterial.h"
 #import <QuartzCore/QuartzCore.h>
 #include <math.h>
 
@@ -33,6 +34,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 - (void)beginDraggingAt:(NSPoint)point;
 - (void)dragTo:(NSPoint)point;
 - (void)endDragging;
+- (void)refreshPresentation;
 @end
 @interface RE2FeatureRow : NSView
 @property(nonatomic) RE2Feature feature;
@@ -66,7 +68,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     CGFloat center=(self.bounds.size.height-20)/2;
     if (self.feature%2==0) { [[NSColor colorWithWhite:1 alpha:0.025] setFill]; NSRectFillUsingOperation(self.bounds,NSCompositingOperationSourceOver); }
     NSColor *color=info->implemented ? (self.ready ? NSColor.whiteColor : [NSColor colorWithWhite:0.55 alpha:1]) : [NSColor colorWithWhite:0.4 alpha:1];
-    label(info->shortcut,NSMakeRect(3,center+4,33,15),8.5,[NSColor colorWithWhite:0.58 alpha:1],NO,NO);
+    label(info->shortcut,NSMakeRect(3,center+4,33,15),8.5,[NSColor colorWithWhite:0.78 alpha:1],NO,NO);
     label(info->title,NSMakeRect(37,3,titleWidth(info,width),self.bounds.size.height-6),10,color,NO,YES);
     if (info->numeric) {
         label(@"−",NSMakeRect(value-11,center+2,12,16),11,orange(),YES,NO);
@@ -135,6 +137,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 @end
 @implementation RE2OverlayRoot {
     RE2OverlaySurface *_panel;
+    MTTrainerMaterial *_material;
     RE2OverlayBadge *_badge;
     NSArray<RE2FeatureRow *> *_rows;
     RE2TrainerState *_state;
@@ -147,11 +150,15 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     __weak NSView *_mouseTarget;
     BOOL _mouseSequence;
     NSPoint _dragStart, _dragOrigin;
+    CGFloat _rowHeights[RE2FeatureCapacity];
+    NSString *_renderedStatus,*_renderedMessage;
+    NSUInteger _renderedActive;
+    BOOL _renderedMouse,_hasPresentation;
 }
 - (BOOL)isFlipped { return YES; }
 - (BOOL)isOpaque { return NO; }
 - (BOOL)acceptsFirstResponder { return NO; }
-- (NSView *)panel { return _panel; }
+- (NSView *)panel { return _material; }
 - (NSView *)badge { return _badge; }
 - (instancetype)initWithFrame:(NSRect)frame version:(NSString *)version {
     if (!(self=[super initWithFrame:frame])) return nil;
@@ -162,13 +169,17 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     self.accessibilityLabel=@"Mac Trainer. Befehl und Zirkumflex: Overlay. F12: alle Schalter aus.";
     _panel=[[RE2OverlaySurface alloc] initWithFrame:NSZeroRect]; _panel.owner=self; _panel.wantsLayer=YES;
     _panel.toolTip=@"Titelleiste ziehen: Overlay verschieben. ⌘ ^: verbergen/anzeigen; Cheats bleiben aktiv.";
-    [self addSubview:_panel];
+    _material=[[MTTrainerMaterial alloc]initWithContentView:_panel cornerRadius:14];
+    _material.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];[self addSubview:_material];
     NSMutableArray *rows=[NSMutableArray new];
+    NSInteger perColumn=(NSInteger)ceil(RE2ActiveFeatureCount()/2.0);CGFloat columnHeights[2]={0,0};
     for (NSInteger i=0;i<RE2ActiveFeatureCount();i++) {
         RE2FeatureRow *row=[[RE2FeatureRow alloc] initWithFrame:NSZeroRect]; row.feature=i; row.owner=self;
         row.toolTip=[NSString stringWithFormat:@"%@ (%@)\n%@",RE2FeatureInfoAt(i)->title,RE2FeatureInfoAt(i)->shortcut,RE2FeatureInfoAt(i)->detail];
         [_panel addSubview:row]; [rows addObject:row];
+        _rowHeights[i]=rowHeight(RE2FeatureInfoAt(i));columnHeights[i/perColumn]+=_rowHeights[i]+1;
     }
+    _rowsHeight=MAX(columnHeights[0],columnHeights[1]);
     _rows=rows;
     _badge=[[RE2OverlayBadge alloc] initWithFrame:NSMakeRect(12,12,96,24)]; _badge.owner=self;
     _badge.accessibilityElement=YES; _badge.accessibilityRole=NSAccessibilityButtonRole; _badge.accessibilityLabel=@"Trainer einblenden: Befehl und Zirkumflex";
@@ -177,9 +188,6 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 - (void)layout {
     [super layout];
     NSInteger perColumn=(NSInteger)ceil(RE2ActiveFeatureCount()/2.0);
-    CGFloat columnHeights[2]={0,0};
-    for(NSInteger i=0;i<RE2ActiveFeatureCount();i++)columnHeights[i/perColumn]+=rowHeight(RE2FeatureInfoAt(i))+1;
-    _rowsHeight=MAX(columnHeights[0],columnHeights[1]);
     CGFloat height=_folded ? 44 : 133+_rowsHeight;
     CGFloat margin=MIN(12,MAX(0,MIN(self.bounds.size.width,self.bounds.size.height)*0.1));
     CGFloat scale=MAX(0.001,MIN(_scale,MIN(MAX(1,self.bounds.size.width-2*margin)/540,MAX(1,self.bounds.size.height-2*margin)/height)));
@@ -190,20 +198,19 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
         unit.y=[position hasPrefix:@"bottom"] ? 1 : [position isEqualToString:@"center"] ? 0.5 : 0;
     }
     CGFloat availableX=MAX(0,self.bounds.size.width-2*margin-540*scale),availableY=MAX(0,self.bounds.size.height-2*margin-height*scale);
-    _panel.frame=NSMakeRect(margin+unit.x*availableX,margin+unit.y*availableY,540*scale,height*scale);
-    _panel.bounds=NSMakeRect(0,0,540,height);
+    _material.frame=NSMakeRect(margin+unit.x*availableX,margin+unit.y*availableY,540*scale,height*scale);
+    _material.bounds=NSMakeRect(0,0,_material.frame.size.width,_material.frame.size.height);
+    _material.logicalContentSize=NSMakeSize(540,height);[_material layout];
     CGFloat columnY[2]={48,48};
     for (NSInteger i=0;i<RE2ActiveFeatureCount();i++) {
-        NSInteger column=i/perColumn;CGFloat h=rowHeight(RE2FeatureInfoAt(i));
+        NSInteger column=i/perColumn;CGFloat h=_rowHeights[i];
         _rows[i].frame=NSMakeRect(8+column*266,columnY[column],258,h); _rows[i].hidden=_folded;
         columnY[column]+=h+1;
     }
     _badge.frame=NSMakeRect(margin+unit.x*MAX(0,self.bounds.size.width-2*margin-96),margin+unit.y*MAX(0,self.bounds.size.height-2*margin-24),96,24);
 }
 - (void)drawPanel:(NSRect)bounds {
-    [[NSColor colorWithRed:0.075 green:0.08 blue:0.085 alpha:0.96] setFill];
-    NSBezierPath *border=[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(bounds,0.5,0.5) xRadius:7 yRadius:7];
-    [border fill]; [orange() setStroke]; [border stroke];
+    (void)bounds; // The native material owns the background and its edge.
     label([RE2GameShortName() stringByAppendingString:@" TRAINER"],NSMakeRect(10,7,112,18),12,orange(),YES,NO);
     label(@"TRAINER",NSMakeRect(126,9,55,14),9,NSColor.whiteColor,YES,NO);
     label(@"−",NSMakeRect(438,6,18,19),13,NSColor.whiteColor,YES,NO);
@@ -212,7 +219,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     label(@"×",NSMakeRect(519,6,18,19),13,NSColor.whiteColor,YES,NO);
     NSUInteger active=0; for (RE2FeatureState *feature in _state.features) if (feature.active) active++;
     NSString *summary=[NSString stringWithFormat:@"%@ · %@ · %lu aktiv · F12 alles aus",_gameVersion,_state.status,(unsigned long)active];
-    label(summary,NSMakeRect(10,27,520,15),9,[NSColor colorWithWhite:0.67 alpha:1],NO,NO);
+    label(summary,NSMakeRect(10,27,520,15),9,[NSColor colorWithWhite:0.82 alpha:1],NO,NO);
     if (_folded) return;
     [[NSColor colorWithWhite:1 alpha:0.1] setFill]; NSRectFillUsingOperation(NSMakeRect(270,47,0.5,_rowsHeight),NSCompositingOperationSourceOver);
     if (_editingFeature>=0) {
@@ -222,7 +229,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
         label(detail ?: @"",NSMakeRect(10,54+_rowsHeight,520,42),9.5,[NSColor colorWithWhite:0.79 alpha:1],NO,YES);
     }
     NSString *mouseState=!self.wantsMouseInteraction ? @"Spiel" : _state.overlayMouseActive ? @"frei" : @"wartet";
-    label([NSString stringWithFormat:@"⌘ ^ Öffnen / Schließen · Maus automatisch %@ · Esc schließen · %@",mouseState,RE2GameVersionLabel()],NSMakeRect(10,103+_rowsHeight,520,12),8,[NSColor colorWithWhite:0.5 alpha:1],NO,NO);
+    label([NSString stringWithFormat:@"⌘ ^ Öffnen / Schließen · Maus automatisch %@ · Esc schließen · %@",mouseState,RE2GameVersionLabel()],NSMakeRect(10,103+_rowsHeight,520,12),8,[NSColor colorWithWhite:0.78 alpha:1],NO,NO);
 }
 - (void)headerClick:(NSPoint)point {
     if (point.y>25) return;
@@ -233,8 +240,9 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     [_panel setNeedsDisplay:YES];
 }
 - (void)setPanelVisible:(BOOL)visible {
-    _panelVisible=visible; _panel.hidden=!visible; _badge.hidden=visible || ![_options[@"badge"] boolValue];
+    _panelVisible=visible; _material.hidden=!visible; _badge.hidden=visible || ![_options[@"badge"] boolValue];
     if (!visible) { _editingFeature=-1; _dragging=NO; }
+    else {[self refreshPresentation];[_panel setNeedsDisplay:YES];}
     [self setNeedsDisplay:YES];
     [self.window invalidateCursorRectsForView:_panel];
 }
@@ -260,7 +268,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 }
 - (void)beginDraggingAt:(NSPoint)point {
     _dragging=self.panelVisible && [_options[@"draggable"] boolValue]; _dragMoved=NO;
-    _dragStart=point; _dragOrigin=_panel.frame.origin;
+    _dragStart=point; _dragOrigin=_material.frame.origin;
 }
 - (void)dragTo:(NSPoint)point {
     if (!_dragging) return;
@@ -268,8 +276,8 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     if (!_dragMoved && fabs(dx)+fabs(dy)<3) return;
     _dragMoved=YES;
     CGFloat margin=MIN(12,MAX(0,MIN(self.bounds.size.width,self.bounds.size.height)*0.1));
-    CGFloat width=MAX(0,self.bounds.size.width-2*margin-_panel.frame.size.width);
-    CGFloat height=MAX(0,self.bounds.size.height-2*margin-_panel.frame.size.height);
+    CGFloat width=MAX(0,self.bounds.size.width-2*margin-_material.frame.size.width);
+    CGFloat height=MAX(0,self.bounds.size.height-2*margin-_material.frame.size.height);
     NSMutableDictionary *options=[self.overlayOptions mutableCopy]; options[@"position"]=@"free";
     options[@"x"]=@(width>0 ? MIN(1,MAX(0,(_dragOrigin.x+dx-margin)/width)) : 0);
     options[@"y"]=@(height>0 ? MIN(1,MAX(0,(_dragOrigin.y+dy-margin)/height)) : 0);
@@ -281,14 +289,32 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 }
 - (void)updateState:(RE2TrainerState *)state {
     _state=state;
+    if(self.panelVisible)[self refreshPresentation];
+}
+- (void)refreshPresentation {
+    if(!_state)return;
+    RE2TrainerState *state=_state;NSUInteger active=0;
     for (NSInteger i=0;i<RE2ActiveFeatureCount();i++) {
-        RE2FeatureRow *row=_rows[i]; row.state=state.features[i]; row.ready=state.ready;
+        RE2FeatureRow *row=_rows[i];RE2FeatureState *next=state.features[i],*old=row.state;
+        active+=next.active;
+        if(old && row.ready==state.ready && old.available==next.available && old.wanted==next.wanted
+            && old.active==next.active && old.value==next.value && (old.note==next.note || [old.note isEqualToString:next.note]))continue;
+        // Store an independent presentation snapshot, even if a caller mutates
+        // its state instance in place. Hidden UI keeps only the latest state.
+        RE2FeatureState *copy=[RE2FeatureState new];copy.available=next.available;copy.wanted=next.wanted;
+        copy.active=next.active;copy.value=next.value;copy.note=next.note;
+        row.state=copy; row.ready=state.ready;
         row.accessibilityLabel=[NSString stringWithFormat:@"%@ · %@ · %@",RE2FeatureInfoAt(i)->title,RE2FeatureInfoAt(i)->shortcut,!RE2FeatureInfoAt(i)->implemented ? @"nicht verfügbar" : row.state.active ? @"an" : row.state.wanted ? @"wartet" : @"aus"];
         row.accessibilityValue=@(row.state.wanted); row.accessibilityEnabled=state.ready && RE2FeatureInfoAt(i)->implemented;
         row.toolTip=[NSString stringWithFormat:@"%@ (%@)\n%@%@",RE2FeatureInfoAt(i)->title,RE2FeatureInfoAt(i)->shortcut,RE2FeatureInfoAt(i)->detail,row.state.wanted && row.state.note.length ? [@"\nStatus: " stringByAppendingString:row.state.note] : @""];
         [row setNeedsDisplay:YES];
     }
-    [_panel setNeedsDisplay:YES];
+    if(!_hasPresentation || _renderedActive!=active || _renderedMouse!=state.overlayMouseActive
+        || !(_renderedStatus==state.status || [_renderedStatus isEqualToString:state.status])
+        || !(_renderedMessage==state.message || [_renderedMessage isEqualToString:state.message])){
+        _hasPresentation=YES;_renderedActive=active;_renderedMouse=state.overlayMouseActive;
+        _renderedStatus=[state.status copy];_renderedMessage=[state.message copy];[_panel setNeedsDisplay:YES];
+    }
 }
 - (void)hoverFeature:(RE2Feature)feature { _hover=feature; [_panel setNeedsDisplay:YES]; }
 - (void)activateFeature:(RE2Feature)feature {
@@ -347,7 +373,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     if (event.type==NSEventTypeLeftMouseDown) {
         _mouseTarget=nil; _mouseSequence=NO;
         NSPoint point=[self convertPoint:event.locationInWindow fromView:nil];
-        NSView *target=self.wantsMouseInteraction ? [_panel hitTest:point] : nil;
+        NSView *target=self.wantsMouseInteraction ? [_material hitTest:point] : nil;
         if (!target && !_badge.hidden) target=[_badge hitTest:point];
         if (!target) return NO;
         _mouseTarget=target; _mouseSequence=YES;

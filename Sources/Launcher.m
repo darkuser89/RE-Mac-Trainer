@@ -6,6 +6,7 @@
 #import "OverlaySettings.h"
 #import "CheatPreferences.h"
 #import "RE2ProbeLaunch.h"
+#import "TrainerMaterial.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight weight,NSColor *color){
@@ -43,8 +44,10 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
     self.window.releasedWhenClosed=NO;self.window.title=self.configuration[@"app"][@"name"];
     self.window.titlebarAppearsTransparent=YES;self.window.titleVisibility=NSWindowTitleHidden;
     self.window.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    self.window.backgroundColor=[NSColor colorWithSRGBRed:0.085 green:0.09 blue:0.10 alpha:1];
-    NSView *content=self.window.contentView;
+    self.window.opaque=NO;self.window.backgroundColor=NSColor.clearColor;
+    NSVisualEffectView *content=[[NSVisualEffectView alloc]initWithFrame:self.window.contentView.bounds];
+    content.material=NSVisualEffectMaterialWindowBackground;content.blendingMode=NSVisualEffectBlendingModeBehindWindow;
+    content.state=NSVisualEffectStateFollowsWindowActiveState;self.window.contentView=content;
     NSTextField *eyebrow=RE2LauncherLabel(@"TRAINER",11,NSFontWeightBold,accent);
     NSTextField *title=RE2LauncherLabel(@"Resident Evil",29,NSFontWeightSemibold,NSColor.labelColor);
     NSStackView *heading=[NSStackView stackViewWithViews:@[eyebrow,title]];
@@ -56,10 +59,8 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
     NSString *saved=[NSUserDefaults.standardUserDefaults stringForKey:@"SelectedGameProfile"];
     NSArray *profiles=self.configuration[@"profiles"];for(NSUInteger i=0;i<profiles.count;i++)if([profiles[i][@"id"] isEqual:saved])self.games.selectedSegment=i;
     self.games.accessibilityLabel=@"Spiel auswählen";
-    NSView *gameCard=[NSView new];gameCard.wantsLayer=YES;
-    gameCard.layer.backgroundColor=[NSColor colorWithSRGBRed:0.13 green:0.14 blue:0.15 alpha:1].CGColor;
-    gameCard.layer.cornerRadius=12;gameCard.layer.borderWidth=1;
-    gameCard.layer.borderColor=[NSColor colorWithWhite:1 alpha:0.07].CGColor;
+    NSView *gameCard=[NSView new];
+    MTTrainerMaterial *gameSurface=[[MTTrainerMaterial alloc]initWithContentView:gameCard cornerRadius:16];
     self.gameIcon=[NSImageView new];self.gameIcon.imageScaling=NSImageScaleProportionallyUpOrDown;
     self.gameIcon.translatesAutoresizingMaskIntoConstraints=NO;
     self.gameName=RE2LauncherLabel(@"",15,NSFontWeightMedium,NSColor.labelColor);
@@ -71,7 +72,7 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
     self.choose.translatesAutoresizingMaskIntoConstraints=NO;self.choose.toolTip=@"Original-Spiel-App auswählen";
     [gameCard addSubview:self.gameIcon];[gameCard addSubview:gameText];[gameCard addSubview:self.choose];
     [NSLayoutConstraint activateConstraints:@[
-        [gameCard.heightAnchor constraintEqualToConstant:76],
+        [gameSurface.heightAnchor constraintEqualToConstant:76],
         [self.gameIcon.leadingAnchor constraintEqualToAnchor:gameCard.leadingAnchor constant:14],
         [self.gameIcon.centerYAnchor constraintEqualToAnchor:gameCard.centerYAnchor],
         [self.gameIcon.widthAnchor constraintEqualToConstant:46],[self.gameIcon.heightAnchor constraintEqualToConstant:46],
@@ -82,8 +83,10 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
         [self.choose.centerYAnchor constraintEqualToAnchor:gameCard.centerYAnchor]
     ]];
     self.start=[NSButton buttonWithTitle:@"Spiel mit Trainer starten" target:self action:@selector(startGame:)];
-    self.start.bordered=NO;self.start.wantsLayer=YES;self.start.layer.cornerRadius=10;self.start.layer.backgroundColor=accent.CGColor;
-    self.start.font=[NSFont systemFontOfSize:15 weight:NSFontWeightSemibold];self.start.contentTintColor=[NSColor colorWithWhite:0.09 alpha:1];
+    self.start.bordered=YES;self.start.bezelStyle=NSBezelStyleAutomatic;
+    if(@available(macOS 26.0,*)){self.start.bezelStyle=NSBezelStyleGlass;self.start.tintProminence=NSTintProminencePrimary;}
+    self.start.bezelColor=accent;
+    self.start.font=[NSFont systemFontOfSize:15 weight:NSFontWeightSemibold];
     self.start.image=[NSImage imageWithSystemSymbolName:@"play.fill" accessibilityDescription:nil];self.start.imagePosition=NSImageLeft;self.start.imageHugsTitle=YES;
     self.start.keyEquivalent=@"\r";self.start.toolTip=@"Gewähltes Spiel mit Trainer starten. Cheats im Spiel einschalten.";
     [self.start.heightAnchor constraintEqualToConstant:46].active=YES;
@@ -98,7 +101,7 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
         NSTextField *label=RE2LauncherLabel(hint,11,NSFontWeightMedium,NSColor.secondaryLabelColor);label.alignment=NSTextAlignmentCenter;[hints addObject:label];
     }
     NSStackView *shortcuts=[NSStackView stackViewWithViews:hints];shortcuts.distribution=NSStackViewDistributionFillEqually;shortcuts.spacing=12;
-    NSStackView *stack=[NSStackView stackViewWithViews:@[heading,self.games,gameCard,self.start,self.restoreCheats,self.status,shortcuts]];
+    NSStackView *stack=[NSStackView stackViewWithViews:@[heading,self.games,gameSurface,self.start,self.restoreCheats,self.status,shortcuts]];
     stack.orientation=NSUserInterfaceLayoutOrientationVertical;stack.alignment=NSLayoutAttributeLeading;stack.spacing=16;stack.translatesAutoresizingMaskIntoConstraints=NO;
     [content addSubview:stack];
     NSMutableArray *constraints=[NSMutableArray arrayWithArray:@[
@@ -107,7 +110,7 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
         [stack.topAnchor constraintEqualToAnchor:content.topAnchor constant:26],
         [stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-20]
     ]];
-    for(NSView *view in @[self.games,gameCard,self.start,self.restoreCheats,self.status,shortcuts])[constraints addObject:[view.widthAnchor constraintEqualToAnchor:stack.widthAnchor]];
+    for(NSView *view in @[self.games,gameSurface,self.start,self.restoreCheats,self.status,shortcuts])[constraints addObject:[view.widthAnchor constraintEqualToAnchor:stack.widthAnchor]];
     [NSLayoutConstraint activateConstraints:constraints];
     __weak RE2Launcher *weakSelf=self;
     self.settingsObserver=[NSDistributedNotificationCenter.defaultCenter addObserverForName:RE2OverlayChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *event){

@@ -33,6 +33,14 @@ Beim Öffnen wird die Maus automatisch für das Trainer-UI freigegeben;
 beim Schließen erhält das Spiel die Maus zurück. Im Titelmenü und während des Ladens bleiben
 Cheats gesperrt, bis die lokale Spielfigur bestätigt ist.
 
+Ab Build78 nutzen Launcher und schwebendes Overlay natives Liquid Glass unter
+macOS26 oder neuer. macOS14/15 verwenden die native Vibrancy-Darstellung.
+„Transparenz reduzieren“ wird auch bei Änderungen während der Laufzeit beachtet.
+Das Overlay behält im verborgenen Zustand die aktuellen Daten, baut seine
+Zeilendarstellung aber erst beim Öffnen auf. Unveränderte sichtbare Zeilen werden
+wiederverwendet; feste Texthöhen werden pro Overlay einmal berechnet.
+Cheat-Anwendung, Spielthread-Taktung und Eingabe-Freigabe sind davon unabhängig.
+
 - ⌘ + ^: Overlay samt Mausbedienung öffnen/schließen; ausgewählte Effekte bleiben aktiv.
 - F12: alle laufenden Effekte ausschalten; eigene Werte bei gültigem Besitzer zurückstellen.
 - Esc: sichtbares Overlay schließen und Maus zurückgeben; beim Bearbeiten einer Zahl zunächst die Eingabe abbrechen.
