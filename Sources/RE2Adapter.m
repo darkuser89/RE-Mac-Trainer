@@ -67,6 +67,7 @@ static BOOL RE2WriteLocalSpeed(MTRE2Engine *engine,void *controller,float target
     NSString *_highlightStage;
     NSString *_enemyBindingStage;
     NSString *_portableStage;
+    NSMutableDictionary *_portableProbe;
     NSMutableDictionary<NSNumber *,NSString *> *_enemyCounts;
     CFAbsoluteTime _saveCountVerifyAt;
     void *_saveCountVerifyRecord;
@@ -87,6 +88,7 @@ static BOOL RE2WriteLocalSpeed(MTRE2Engine *engine,void *controller,float target
     return [_engine isObject:controller kindOf:12402] ? controller : NULL;
 }
 - (void)portableStage:(NSString *)stage {
+    if(_portableProbe)_portableProbe[@"stage"]=stage;
     if(![_portableStage isEqual:stage]){_portableStage=[stage copy];os_log(_log,"Portable safe binding %{public}@",stage);}
 }
 - (void *)component:(uint32_t)type onGameObject:(void *)go {
@@ -98,58 +100,82 @@ static BOOL RE2WriteLocalSpeed(MTRE2Engine *engine,void *controller,float target
     return NULL;
 }
 - (void *)openedPortableSafe {
-    if(!_engine.isGameThread || !_engine.threadContext)return NULL;
-    void *gui=[_engine singletonAt:0x10b15bc38];if([_engine typeOf:gui]!=7343)return NULL;
+    if(!_engine.isGameThread || !_engine.threadContext){[self portableStage:@"no game-thread context"];return NULL;}
+    void *gui=[_engine singletonAt:0x10b15bc38];
+    if(_portableProbe)_portableProbe[@"guiType"]=@([_engine typeOf:gui]);
+    if([_engine typeOf:gui]!=7343){[self portableStage:@"GUI master not resolved"];return NULL;}
     uint64_t boxed[4]={0};
-    if(!MTReadMemory((uint8_t *)gui+0x408,boxed+2,16) || !(boxed[2]|boxed[3]))return NULL;
+    if(!MTReadMemory((uint8_t *)gui+0x408,boxed+2,16) || !(boxed[2]|boxed[3])){[self portableStage:@"inventory UI reference missing"];return NULL;}
     void *(*resolve)(void *,void *)=[_engine method:RE2Method_WeakGO_get_Target owner:RE2Type_WeakGO];
     void *go=resolve ? resolve(_engine.threadContext,boxed) : NULL;
     void *inventory=[self component:26435 onGameObject:go];
     if(!inventory){[self portableStage:@"inventory UI not resolved"];return NULL;}
     void *detail=[self objectGetter:109769 owner:26435 object:inventory];
+    if(_portableProbe)_portableProbe[@"detailType"]=@([_engine typeOf:detail]);
     if([_engine typeOf:detail]!=765){[self portableStage:@"detail not resolved"];return NULL;}
     BOOL (*puzzleMode)(void *,void *)=[_engine method:109192 owner:765];
     if(!puzzleMode || !puzzleMode(_engine.threadContext,detail)){[self portableStage:@"no active item puzzle"];return NULL;}
     void *model=[self objectGetter:109171 owner:765 object:detail];
+    if(_portableProbe)_portableProbe[@"modelType"]=@([_engine typeOf:model]);
     if([_engine typeOf:model]!=19820){[self portableStage:@"item model not resolved"];return NULL;}
     for(NSNumber *getter in @[@109141,@109139]){
         void *modelGO=[self objectGetter:getter.unsignedIntValue owner:19820 object:model];
         void *safe=[self component:9088 onGameObject:modelGO];
         RE2Owner *owner=safe ? [RE2Owner ownerForComponent:safe engine:_engine] : nil;
-        if(owner.valid)return safe;
+        if(owner.valid){[self portableStage:@"current portable safe bound"];return safe;}
     }
     [self portableStage:@"portable component not on current model"];return NULL;
 }
 - (BOOL)solvePortableSafe:(void *)safe owner:(RE2Owner *)owner {
-    if(!_engine.isGameThread || !_engine.threadContext || [_engine typeOf:safe]!=9088 || !owner.valid || owner.component!=safe || [self openedPortableSafe]!=safe)return NO;
+    if(!_engine.isGameThread || !_engine.threadContext || [_engine typeOf:safe]!=9088 || !owner.valid || owner.component!=safe || [self openedPortableSafe]!=safe){[self portableStage:@"no current valid portable-safe owner"];return NO;}
     void *ctx=_engine.threadContext;
     void *answers=[self objectGetter:454672 owner:9088 object:safe];
     void *input=[self objectGetter:454674 owner:9088 object:safe];
     int32_t (*count)(void *,void *)=[_engine method:6331 owner:12274];
     int32_t (*at)(void *,void *,int32_t)=[_engine method:6337 owner:12274];
     void (*clear)(void *,void *)=[_engine method:454693 owner:9088];
+    // Exact TDB74: ResizeUserInput returns void and takes no explicit arguments.
+    void (*resize)(void *,void *)=[_engine method:454694 owner:9088];
     void (*setInput)(void *,void *,int32_t)=[_engine method:454695 owner:9088];
     BOOL (*incorrect)(void *,void *)=[_engine method:454696 owner:9088];
     BOOL (*finished)(void *,void *)=[_engine method:454686 owner:9088];
     uint8_t demo=1,updating=0;
-    if(!count || !at || !clear || !setInput || !incorrect || !finished || [_engine typeOf:answers]!=12274 || [_engine typeOf:input]!=12274 || count(ctx,answers)!=8 || count(ctx,input)!=8 || !MTReadMemory((uint8_t *)safe+0xc0,&demo,1) || demo || !MTReadMemory((uint8_t *)safe+0x52,&updating,1) || updating!=1 || finished(ctx,safe))return NO;
+    if(!count || !at || !clear || !setInput || !incorrect || !finished){[self portableStage:@"required native method missing"];return NO;}
+    uint32_t answersType=[_engine typeOf:answers],inputType=[_engine typeOf:input];
+    if(_portableProbe){_portableProbe[@"answerType"]=@(answersType);_portableProbe[@"inputType"]=@(inputType);}
+    if(answersType!=12274 || inputType!=12274){[self portableStage:@"unexpected answer/input list type"];return NO;}
+    int32_t answerCount=count(ctx,answers),inputCount=count(ctx,input);
+    BOOL flags=MTReadMemory((uint8_t *)safe+0xc0,&demo,1) && MTReadMemory((uint8_t *)safe+0x52,&updating,1);
+    BOOL complete=finished(ctx,safe);
+    if(_portableProbe){_portableProbe[@"answerCount"]=@(answerCount);_portableProbe[@"inputCount"]=@(inputCount);_portableProbe[@"flagsReadable"]=@(flags);_portableProbe[@"demo"]=@(demo);_portableProbe[@"updating"]=@(updating);_portableProbe[@"complete"]=@(complete);_portableProbe[@"userInputCount"]=@(integer(safe,0xb8));}
+    if(answerCount!=8 || (inputCount!=0 && inputCount!=8)){[self portableStage:@"unexpected answer/input list count"];return NO;}
+    if(inputCount==0 && !resize){[self portableStage:@"native input initialization unavailable"];return NO;}
+    if(!flags || demo || updating!=1 || complete){[self portableStage:@"puzzle not accepting input"];return NO;}
     int32_t solution[8];uint32_t seen=0;
-    for(int i=0;i<8;i++){solution[i]=at(ctx,answers,i);if(solution[i]<0 || solution[i]>7 || (seen&(1u<<solution[i])))return NO;seen|=1u<<solution[i];}
+    for(int i=0;i<8;i++){solution[i]=at(ctx,answers,i);if(solution[i]<0 || solution[i]>7 || (seen&(1u<<solution[i]))){[self portableStage:@"answer sequence is not a permutation of eight buttons"];return NO;}seen|=1u<<solution[i];}
     if(!owner.valid || [self openedPortableSafe]!=safe)return NO;
     // Exact Mac native ClearUserInput resets count and answering/incorrect flags.
     // SetUserInput writes the slot at UserInputCount-1; CheckInput returns
     // TRUE for an INCORRECT prefix. WaitPuzzle reads IsSatisfy at +0xbf.
     clear(ctx,safe);
     if(integer(safe,0xb8)!=0)return NO;
+    // A newly opened safe may have an empty UserInput list. Let the game
+    // allocate its eight slots; never index an empty list or fake its Count.
+    if([self objectGetter:454674 owner:9088 object:safe]!=input)return NO;
+    int32_t preparedCount=count(ctx,input);
+    if(preparedCount==0 && resize){resize(ctx,safe);preparedCount=count(ctx,input);}
+    if(_portableProbe)_portableProbe[@"preparedInputCount"]=@(preparedCount);
+    if(!owner.valid || [self openedPortableSafe]!=safe || [self objectGetter:454674 owner:9088 object:safe]!=input || preparedCount!=8 || integer(safe,0xb8)!=0){[self portableStage:@"native input initialization failed"];return NO;}
     for(int i=0;i<8;i++){
         if(!owner.valid || [self openedPortableSafe]!=safe)return NO;
         if(!MTWriteInt(safe,0xb8,i+1)){clear(ctx,safe);return NO;}
         setInput(ctx,safe,solution[i]);
-        if(incorrect(ctx,safe) || integer(safe,0xb8)!=(uint32_t)(i+1) || [self objectGetter:454674 owner:9088 object:safe]!=input || count(ctx,input)!=8 || at(ctx,input,i)!=solution[i]){clear(ctx,safe);return NO;}
+        if(incorrect(ctx,safe) || integer(safe,0xb8)!=(uint32_t)(i+1) || [self objectGetter:454674 owner:9088 object:safe]!=input || count(ctx,input)!=8 || at(ctx,input,i)!=solution[i]){if(_portableProbe)_portableProbe[@"failedStep"]=@(i+1);[self portableStage:@"native input verification failed"];clear(ctx,safe);return NO;}
     }
     for(int i=0;i<8;i++)if(at(ctx,input,i)!=solution[i]){clear(ctx,safe);return NO;}
     if(!owner.valid || [self openedPortableSafe]!=safe || incorrect(ctx,safe))return NO;
     BOOL result=MTWriteByte(safe,0xbf,1) && finished(ctx,safe);
+    [self portableStage:result ? @"completed" : @"completion readback failed"];
     os_log(_log,"Portable safe solve count=%{public}u nativeIncorrect=%{public}d finished=%{public}d",integer(safe,0xb8),incorrect(ctx,safe),result);
     // The inventory's normal WaitPuzzle -> EndPuzzle path supplies the reward.
     // Never call EndPuzzle twice or alter inventory/save files directly.
@@ -620,8 +646,10 @@ static BOOL RE2WriteLocalSpeed(MTRE2Engine *engine,void *controller,float target
     (void)value;if(!_engine.isGameThread || !_playerOwner.valid)return @"Kein bestätigter lokaler Spielkontext.";
     void *ctx=_engine.threadContext;
     if(feature==RE2FeaturePortableSafe){
+        _portableProbe=[@{@"capturedAt":@(NSDate.date.timeIntervalSince1970),@"source":@"explicit mini-safe action"} mutableCopy];
         void *safe=[self openedPortableSafe];RE2Owner *owner=safe ? [RE2Owner ownerForComponent:safe engine:_engine] : nil;
-        return [self solvePortableSafe:safe owner:owner] ? @"Mini-Tresor gelöst; das Spiel führt den normalen Abschluss aus." : @"Kein bereitstehender Mini-Tresor bestätigt. Öffne das Rätsel mit den acht Tasten und versuche es erneut.";
+        BOOL solved=safe && [self solvePortableSafe:safe owner:owner];_portableProbe[@"solved"]=@(solved);
+        return solved ? @"Mini-Tresor gelöst; das Spiel führt den normalen Abschluss aus." : @"Kein bereitstehender Mini-Tresor bestätigt. Öffne das Rätsel mit den acht Tasten und versuche es erneut.";
     }
     if(feature==RE2FeatureGameTime){
         void *clock=[_engine singletonAt:0x10b155fb8];
@@ -669,6 +697,7 @@ static BOOL RE2WriteLocalSpeed(MTRE2Engine *engine,void *controller,float target
 }
 - (NSDictionary *)diagnostics {
     NSMutableDictionary *d=[@{@"nativeGameThread":@(_engine.isGameThread),@"pendingSpeedRestore":@(_speedOutstanding)} mutableCopy];
+    if(_portableProbe)d[@"portableSafe"]=[_portableProbe copy];
     if(_engine.isGameThread && _playerOwner.valid && _speedOwner.valid && [self objectGetter:191902 owner:31594 object:_speedOwner.component]==_condition){
         float (*play)(void *,void *)=[_engine method:191873 owner:23201];float (*motion)(void *,void *)=[_engine method:191875 owner:23201];
         if(play && motion && _engine.threadContext){float p=play(_engine.threadContext,_speedOwner.component),m=motion(_engine.threadContext,_speedOwner.component);if(isfinite(p) && isfinite(m))d[@"localSpeed"]=@{@"input":@(p),@"effective":@(m),@"intervalApplications":@(_speedTelemetryCalls),@"intervalRestores":@(_speedTelemetryRestores)};}

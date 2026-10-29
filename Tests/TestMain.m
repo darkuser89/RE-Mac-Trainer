@@ -102,13 +102,14 @@ static void re2SaveCountTests(void){
 }
 @interface RE2PortableFixtureEngine : MTRE2Engine
 @property(nonatomic,assign) void *safe,*answers,*input;
-@property(nonatomic) BOOL wrongThread,wrongType,missingSetter,rejectInput,incorrectPrefix;
-@property(nonatomic) int listCount;
-@property(nonatomic) NSUInteger clears,inputs;
+@property(nonatomic) BOOL wrongThread,wrongType,missingSetter,missingResize,rejectResize,rejectInput,incorrectPrefix;
+@property(nonatomic) int listCount,inputListCount;
+@property(nonatomic) NSUInteger clears,inputs,resizes;
 @end
 static void *portableFixtureAnswers(void *ctx,void *safe){(void)safe;return ((__bridge RE2PortableFixtureEngine *)ctx).answers;}
 static void *portableFixtureInput(void *ctx,void *safe){(void)safe;return ((__bridge RE2PortableFixtureEngine *)ctx).input;}
-static int32_t portableFixtureCount(void *ctx,void *list){(void)list;return ((__bridge RE2PortableFixtureEngine *)ctx).listCount;}
+static int32_t portableFixtureCount(void *ctx,void *list){RE2PortableFixtureEngine *e=(__bridge id)ctx;return list==e.input ? e.inputListCount : e.listCount;}
+static void portableFixtureResize(void *ctx,void *safe){(void)safe;RE2PortableFixtureEngine *e=(__bridge id)ctx;e.resizes++;if(!e.rejectResize)e.inputListCount=8;}
 static int32_t portableFixtureAt(void *ctx,void *list,int32_t i){(void)ctx;return ((int32_t *)list)[i];}
 static void portableFixtureClear(void *ctx,void *safe){RE2PortableFixtureEngine *e=(__bridge id)ctx;e.clears++;memset((uint8_t *)safe+0xb8,0,4);for(int i=0;i<8;i++)((int32_t *)e.input)[i]=-1;}
 static void portableFixtureSet(void *ctx,void *safe,int32_t n){RE2PortableFixtureEngine *e=(__bridge id)ctx;e.inputs++;int32_t count;memcpy(&count,(uint8_t *)safe+0xb8,4);if(!e.rejectInput && count>=1 && count<=8)((int32_t *)e.input)[count-1]=n;}
@@ -121,7 +122,7 @@ static BOOL portableFixtureFinished(void *ctx,void *safe){(void)ctx;return *((ui
 - (void *)method:(uint32_t)i owner:(uint32_t)owner {
     if(owner==12274){if(i==6331)return (void *)portableFixtureCount;if(i==6337)return (void *)portableFixtureAt;return NULL;}
     if(owner!=9088)return NULL;
-    switch(i){case 454672:return (void *)portableFixtureAnswers;case 454674:return (void *)portableFixtureInput;case 454693:return (void *)portableFixtureClear;case 454695:return self.missingSetter ? NULL : (void *)portableFixtureSet;case 454696:return (void *)portableFixtureIncorrect;case 454686:return (void *)portableFixtureFinished;default:return NULL;}
+    switch(i){case 454672:return (void *)portableFixtureAnswers;case 454674:return (void *)portableFixtureInput;case 454693:return (void *)portableFixtureClear;case 454694:return self.missingResize ? NULL : (void *)portableFixtureResize;case 454695:return self.missingSetter ? NULL : (void *)portableFixtureSet;case 454696:return (void *)portableFixtureIncorrect;case 454686:return (void *)portableFixtureFinished;default:return NULL;}
 }
 @end
 @interface RE2PortableFixtureOwner : RE2Owner
@@ -140,7 +141,7 @@ static BOOL portableFixtureFinished(void *ctx,void *safe){(void)ctx;return *((ui
 @end
 static void portableSafeTests(void){
     uint8_t safe[0x100]={0};int32_t answers[8]={3,1,7,0,6,2,5,4},input[8]={0};safe[0x52]=1;
-    RE2PortableFixtureEngine *e=[RE2PortableFixtureEngine new];e.safe=safe;e.answers=answers;e.input=input;e.listCount=8;
+    RE2PortableFixtureEngine *e=[RE2PortableFixtureEngine new];e.safe=safe;e.answers=answers;e.input=input;e.listCount=8;e.inputListCount=8;
     RE2PortableFixtureOwner *owner=[RE2PortableFixtureOwner new];owner.alive=YES;owner.owned=safe;
     RE2PortableFixtureAdapter *a=[RE2PortableFixtureAdapter new];a.opened=safe;[a setValue:e forKey:@"engine"];
     NSCAssert([a solvePortableSafe:safe owner:owner] && portableFixtureFinished(NULL,safe) && e.inputs==8 && !memcmp(answers,input,sizeof(input)),@"portable action submits the actual native sequence, confirms input, and requests normal puzzle completion");
@@ -151,6 +152,11 @@ static void portableSafeTests(void){
     safe[0xc0]=1;NSCAssert(![a solvePortableSafe:safe owner:owner] && e.inputs==inputs,@"demo animation is not an active puzzle");safe[0xc0]=0;
     answers[7]=answers[0];NSCAssert(![a solvePortableSafe:safe owner:owner] && e.inputs==inputs,@"malformed duplicate answer values reject without clearing user input");answers[7]=4;
     e.listCount=7;NSCAssert(![a solvePortableSafe:safe owner:owner] && e.inputs==inputs,@"unexpected list size rejects before any indexed native call");e.listCount=8;
+    for(NSNumber *badCount in @[@(-1),@1,@7,@9]){e.inputListCount=badCount.intValue;NSUInteger clears=e.clears;NSCAssert(![a solvePortableSafe:safe owner:owner] && e.clears==clears && e.inputs==inputs,@"unexpected input sizes reject before mutation");}
+    e.inputListCount=0;e.missingResize=YES;NSUInteger clears=e.clears;
+    NSCAssert(![a solvePortableSafe:safe owner:owner] && e.clears==clears && e.inputs==inputs,@"empty input without native initializer rejects before mutation");e.missingResize=NO;
+    e.rejectResize=YES;NSCAssert(![a solvePortableSafe:safe owner:owner] && !portableFixtureFinished(NULL,safe) && e.inputs==inputs && e.resizes==1,@"failed native resize cannot index an empty list or complete");e.rejectResize=NO;
+    NSCAssert([a solvePortableSafe:safe owner:owner] && e.inputListCount==8 && e.resizes==2 && e.inputs==inputs+8 && !memcmp(answers,input,sizeof(input)),@"fresh empty Claire puzzle initializes via native API before solving");safe[0xbf]=0;
     e.rejectInput=YES;NSCAssert(![a solvePortableSafe:safe owner:owner] && !portableFixtureFinished(NULL,safe),@"failed input readback never marks the puzzle solved");e.rejectInput=NO;
     e.incorrectPrefix=YES;NSCAssert(![a solvePortableSafe:safe owner:owner] && !portableFixtureFinished(NULL,safe),@"native incorrect-prefix result prevents completion");e.incorrectPrefix=NO;
     const RE2FeatureInfo *info=RE2FeatureInfoAt(RE2FeaturePortableSafe);NSCAssert(info->oneShot && info->key==109 && info->modifiers==2,@"portable action is exclusively Alt-F10 and never a persistent toggle");
