@@ -279,13 +279,22 @@ sowie `release-info.json` mit Version, Buildnummer und Quellcommit.
 GitHub Actions baut und prüft jeden Push auf `main` auf einem nativen arm64-Mac.
 Nach erfolgreicher Verpackungsprüfung veröffentlicht es die aktuelle App im
 [Latest-Release](https://github.com/darkuser89/RE-Mac-Trainer/releases/latest).
-Dieses eine Release samt `latest`-Tag wird auf den erfolgreich gebauten Quellstand
-aktualisiert; `main` wird dabei niemals überschrieben. Ein überholter wartender
-Workflow darf keinen neueren `main`-Stand ersetzen. Pull Requests bauen und testen
+Jeder veröffentlichte Quellstand erhält ein eigenes Release samt Tag, etwa
+`v0.9.0-build.78-0123456789ab` (Version, Buildnummer und zwölf Zeichen des Commits).
+Bestehende Releases, Downloads und Tags werden vom Workflow weder überschrieben
+noch gelöscht oder verschoben. Ein erneuter Lauf desselben Standes belässt ein
+vollständig veröffentlichtes Release unverändert. Bei einem unvollständigen
+Release oder abweichenden Tagziel stoppt die Veröffentlichung zur Prüfung.
+
+Die GitHub-Markierung „Latest“ verweist auf das neueste veröffentlichte
+`main`-Build; ältere Releases bleiben in der Release-Liste abrufbar. Das frühere
+Release mit dem wörtlichen Tag `latest` bleibt ebenfalls erhalten. Ein verspätet
+gebauter älterer Commit erhält ein eigenes Release ohne die Latest-Markierung.
+Pull Requests bauen und testen
 ohne Veröffentlichungsrechte. Der Workflow kann auch auf `main` manuell gestartet werden.
 
 Der Workflow benötigt keine eigenen Zugangsdaten oder Apple-Zertifikate;
-für das Release verwendet er den kurzlebigen GitHub-Actions-Token mit
+für neue Releases verwendet er den kurzlebigen GitHub-Actions-Token mit
 `contents: write` ausschließlich im Veröffentlichungsjob. Downloads enthalten
 ZIP, `SHA256SUMS` und Buildinformationen. Temporäre Actions-Artefakte bleiben drei
 Tage verfügbar. Spielstarts und echte Ingame-Funktionstests finden auf GitHub
