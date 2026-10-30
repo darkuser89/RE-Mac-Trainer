@@ -141,7 +141,6 @@ static void startOverlayImplementation(BOOL development) {
             shortcuts.handler=^(RE2OverlayShortcut action) {
                 RE2OverlayRoot *root=NSApp.isActive ? shortcutRoot(nil,YES) : nil;
                 if (action==RE2ShortcutPanel) [root togglePanel:nil];
-                else if (action==RE2ShortcutMouse) [root toggleMouseInteraction];
             };
             activeObserver=[NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidBecomeActiveNotification
                 object:NSApp queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *event) { (void)event; updateKeyboardShortcuts(); }];

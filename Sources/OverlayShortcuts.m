@@ -4,11 +4,12 @@
 NSInteger RE2ShortcutForEvent(NSEvent *event) {
     if (event.type!=NSEventTypeKeyDown) return -1;
     NSEventModifierFlags flags=event.modifierFlags;
-    if (!(flags&NSEventModifierFlagCommand) || (flags&NSEventModifierFlagControl)) return -1;
-    // ISO German caret is a dead key: its characters can be empty or composed.
-    // Character matching additionally supports e.g. Shift+6 on an ANSI layout.
-    if (!((event.keyCode==10 && !(flags&NSEventModifierFlagShift)) || [event.charactersIgnoringModifiers isEqualToString:@"^"])) return -1;
-    return flags&NSEventModifierFlagOption ? RE2ShortcutMouse : RE2ShortcutPanel;
+    // Only the user's chosen Command+caret key; no Option/Shift variants.
+    // The ISO German caret is a dead key, so characters are unreliable.
+    if (!(flags&NSEventModifierFlagCommand)
+        || (flags&(NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagShift))
+        || event.keyCode!=10) return -1;
+    return RE2ShortcutPanel;
 }
 @implementation RE2OverlayShortcuts {
     BOOL _registered[RE2ShortcutCount], _held[RE2ShortcutCount];

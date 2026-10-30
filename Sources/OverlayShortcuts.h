@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #import <AppKit/AppKit.h>
 
-typedef NS_ENUM(NSInteger, RE2OverlayShortcut) { RE2ShortcutPanel, RE2ShortcutMouse, RE2ShortcutCount };
+typedef NS_ENUM(NSInteger, RE2OverlayShortcut) { RE2ShortcutPanel, RE2ShortcutCount };
 NSInteger RE2ShortcutForEvent(NSEvent *event);
 
 // Shared ownership between the AppKit fallback and macOS hotkey delivery.

@@ -23,7 +23,7 @@ void MTControlRunTests(void){
     a.mode=RE2SessionLoading;[b poll];NSCAssert(!command(b,@{@"action":@"state"}) && !b.state.ready,@"state remains readable during loading");
     NSCAssert(command(b,@{@"action":@"set",@"feature":@0,@"wanted":@YES}) && !b.state.features[0].wanted,@"loading rejects cheat mutation");
     a.mode=RE2SessionSolo;command(b,@{@"action":@"state"});
-    __block BOOL cancelled=NO;[b poll];[b controlCommand:@{@"action":@"run",@"feature":@(RE2FeatureGameTime)} completion:^(RE2TrainerState *s,NSString *e){(void)s;cancelled=e!=nil;}];[b performAction:RE2TrainerDisableAll];waitFor(^BOOL{return cancelled;});NSCAssert(a.oneShots==1,@"F12 cancels a queued control one-shot and completes its callback");
+    __block BOOL cancelled=NO;[b poll];[b controlCommand:@{@"action":@"run",@"feature":@(RE2FeatureGameTime)} completion:^(RE2TrainerState *s,NSString *e){(void)s;cancelled=e!=nil;}];[b performAction:RE2TrainerDisableAll];waitFor(^BOOL{return cancelled;});NSCAssert(a.oneShots==1,@"⇧F9 cancels a queued control one-shot and completes its callback");
     command(b,@{@"action":@"state"});
     NSString *profile=[@"fixture-" stringByAppendingString:NSUUID.UUID.UUIDString],*session=NSUUID.UUID.UUIDString;__block NSUInteger received=0;
     MTLocalControl *server=[[MTLocalControl alloc]initWithMetadata:@{@"profile":profile,@"session":session,@"pid":@(getpid()),@"build":@"test"} handler:^(NSDictionary *r,MTControlReply reply){received++;[b controlCommand:r completion:^(RE2TrainerState *s,NSString *e){reply(e ? @{@"ok":@NO,@"error":e} : @{@"ok":@YES,@"state":MTControlSnapshot(s)});}];}];

@@ -14,7 +14,7 @@
   Hauptthread; ein beliebiger Hintergrundthread ersetzt den GameThread nicht.
 - Beim Laden Auswahl behalten, alte eigene Effekte lösen und neue lokale Besitzer
   validieren. Bei bestätigtem Netzwerkmodus Auswahl löschen und Wirkungen lösen.
-  UI-Steuerung und F12 müssen auch während Ladepausen funktionieren.
+  UI-Steuerung und ⇧F9 müssen auch während Ladepausen funktionieren.
 - Einmalaktionen nach einem Kontextwechsel verwerfen. Effekte nur nach bestätigter
   Rückleseprüfung grün anzeigen. Native Besitzer über passende Weak-Handles schützen.
 - Keine festen Adressen oder vermeintlichen Signaturen aus einem anderen Spiel

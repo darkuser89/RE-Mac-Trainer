@@ -20,7 +20,6 @@
 - (void)applyOverlayOptions:(NSDictionary *)options;
 - (BOOL)handleEvent:(NSEvent *)event;
 - (BOOL)handleMouseEvent:(NSEvent *)event;
-- (void)toggleMouseInteraction;
 @end
 
 BOOL RE2OverlayToggleEvent(NSEvent *event);

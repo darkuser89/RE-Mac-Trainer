@@ -42,9 +42,9 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
     NSColor *accent=[NSColor colorWithSRGBRed:1 green:0.43 blue:0.18 alpha:1];
     self.window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,480,420) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable backing:NSBackingStoreBuffered defer:NO];
     self.window.releasedWhenClosed=NO;self.window.title=self.configuration[@"app"][@"name"];
-    self.window.titlebarAppearsTransparent=YES;self.window.titleVisibility=NSWindowTitleHidden;
+    self.window.titlebarAppearsTransparent=NO;self.window.titleVisibility=NSWindowTitleVisible;
     self.window.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    self.window.opaque=NO;self.window.backgroundColor=NSColor.clearColor;
+    self.window.opaque=YES;self.window.backgroundColor=NSColor.windowBackgroundColor;
     NSVisualEffectView *content=[[NSVisualEffectView alloc]initWithFrame:self.window.contentView.bounds];
     content.material=NSVisualEffectMaterialWindowBackground;content.blendingMode=NSVisualEffectBlendingModeBehindWindow;
     content.state=NSVisualEffectStateFollowsWindowActiveState;self.window.contentView=content;
@@ -97,7 +97,7 @@ static NSTextField *RE2LauncherLabel(NSString *text,CGFloat size,NSFontWeight we
     self.status=RE2LauncherLabel(@"",12,NSFontWeightRegular,NSColor.secondaryLabelColor);
     self.status.alignment=NSTextAlignmentCenter;[self.status.heightAnchor constraintEqualToConstant:30].active=YES;
     NSMutableArray<NSView *> *hints=[NSMutableArray new];
-    for(NSString *hint in @[@"⌘^  Overlay + Maus",@"F12  Cheats aus"]){
+    for(NSString *hint in @[@"⌘^  Overlay + Maus",@"⇧F9  Cheats aus"]){
         NSTextField *label=RE2LauncherLabel(hint,11,NSFontWeightMedium,NSColor.secondaryLabelColor);label.alignment=NSTextAlignmentCenter;[hints addObject:label];
     }
     NSStackView *shortcuts=[NSStackView stackViewWithViews:hints];shortcuts.distribution=NSStackViewDistributionFillEqually;shortcuts.spacing=12;

@@ -14,7 +14,7 @@ static void label(NSString *value, NSRect box, CGFloat size, NSColor *color, BOO
 }
 static NSString *number(double value, BOOL integer) { return integer ? [NSString stringWithFormat:@"%.0f",value] : [NSString stringWithFormat:@"%.4g",value]; }
 static CGFloat titleWidth(const RE2FeatureInfo *info, CGFloat rowWidth) {
-    return info->numeric ? rowWidth-(info->integer ? 105 : 85)-48 : rowWidth-70;
+    return info->numeric ? rowWidth-(info->integer ? 105 : 85)-62 : rowWidth-84;
 }
 static CGFloat rowHeight(const RE2FeatureInfo *info) {
     NSMutableParagraphStyle *style=[NSMutableParagraphStyle new];style.lineBreakMode=NSLineBreakByWordWrapping;
@@ -68,8 +68,8 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     CGFloat center=(self.bounds.size.height-20)/2;
     if (self.feature%2==0) { [[NSColor colorWithWhite:1 alpha:0.025] setFill]; NSRectFillUsingOperation(self.bounds,NSCompositingOperationSourceOver); }
     NSColor *color=info->implemented ? (self.ready ? NSColor.whiteColor : [NSColor colorWithWhite:0.55 alpha:1]) : [NSColor colorWithWhite:0.4 alpha:1];
-    label(info->shortcut,NSMakeRect(3,center+4,33,15),8.5,[NSColor colorWithWhite:0.78 alpha:1],NO,NO);
-    label(info->title,NSMakeRect(37,3,titleWidth(info,width),self.bounds.size.height-6),10,color,NO,YES);
+    label(info->shortcut,NSMakeRect(3,center+4,47,15),8.5,[NSColor colorWithWhite:0.78 alpha:1],NO,NO);
+    label(info->title,NSMakeRect(51,3,titleWidth(info,width),self.bounds.size.height-6),10,color,NO,YES);
     if (info->numeric) {
         label(@"−",NSMakeRect(value-11,center+2,12,16),11,orange(),YES,NO);
         label(number(self.state.value,info->integer),NSMakeRect(value,center+4,valueWidth,15),9.5,orange(),NO,NO);
@@ -166,7 +166,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     self.identifier=@"RE2TrainerOverlay"; self.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
     self.wantsLayer=YES; self.layer.backgroundColor=NSColor.clearColor.CGColor; self.layer.zPosition=100000;
     self.accessibilityElement=YES; self.accessibilityRole=NSAccessibilityGroupRole;
-    self.accessibilityLabel=@"Mac Trainer. Befehl und Zirkumflex: Overlay. F12: alle Schalter aus.";
+    self.accessibilityLabel=@"Mac Trainer. Befehl und Zirkumflex: Overlay. ⇧F9: alle Schalter aus.";
     _panel=[[RE2OverlaySurface alloc] initWithFrame:NSZeroRect]; _panel.owner=self; _panel.wantsLayer=YES;
     _panel.toolTip=@"Titelleiste ziehen: Overlay verschieben. ⌘ ^: verbergen/anzeigen; Cheats bleiben aktiv.";
     _material=[[MTTrainerMaterial alloc]initWithContentView:_panel cornerRadius:14];
@@ -218,7 +218,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     label(_folded ? @"▸" : @"▾",NSMakeRect(493,6,18,19),13,NSColor.whiteColor,YES,NO);
     label(@"×",NSMakeRect(519,6,18,19),13,NSColor.whiteColor,YES,NO);
     NSUInteger active=0; for (RE2FeatureState *feature in _state.features) if (feature.active) active++;
-    NSString *summary=[NSString stringWithFormat:@"%@ · %@ · %lu aktiv · F12 alles aus",_gameVersion,_state.status,(unsigned long)active];
+    NSString *summary=[NSString stringWithFormat:@"%@ · %@ · %lu aktiv · ⇧F9 alles aus",_gameVersion,_state.status,(unsigned long)active];
     label(summary,NSMakeRect(10,27,520,15),9,[NSColor colorWithWhite:0.82 alpha:1],NO,NO);
     if (_folded) return;
     [[NSColor colorWithWhite:1 alpha:0.1] setFill]; NSRectFillUsingOperation(NSMakeRect(270,47,0.5,_rowsHeight),NSCompositingOperationSourceOver);
@@ -248,11 +248,6 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 }
 - (BOOL)wantsMouseInteraction { return self.panelVisible; }
 - (void)togglePanel:(id)sender { (void)sender; self.panelVisible=!self.panelVisible; [self notifyOptionsChanged]; }
-- (void)toggleMouseInteraction {
-    // Compatibility for the former mouse shortcut: it can reveal the UI, but
-    // must never leave a visible panel without its automatic mouse request.
-    self.panelVisible=YES; [self notifyOptionsChanged];
-}
 - (NSDictionary *)overlayOptions {
     NSMutableDictionary *result=[_options mutableCopy]; result[@"visible"]=@(self.panelVisible); result[@"scale"]=@(_scale);
     return RE2NormalizeOverlayOptions(result);
@@ -336,7 +331,6 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
 - (BOOL)handleEvent:(NSEvent *)event {
     if (RE2OverlayToggleEvent(event)) { [self togglePanel:nil]; return YES; }
     if (event.type!=NSEventTypeKeyDown) return NO;
-    if (!event.isARepeat && RE2ShortcutForEvent(event)==RE2ShortcutMouse) { [self toggleMouseInteraction]; return YES; }
     if (event.keyCode==53 && _editingFeature<0 && self.wantsMouseInteraction) {
         self.panelVisible=NO; [self notifyOptionsChanged]; return YES;
     }
@@ -361,7 +355,7 @@ static CGFloat rowHeight(const RE2FeatureInfo *info) {
     }
     if (event.isARepeat || (event.modifierFlags & (NSEventModifierFlagCommand|NSEventModifierFlagControl))) return NO;
     NSUInteger modifiers=((event.modifierFlags & NSEventModifierFlagShift) ? 1 : 0) | ((event.modifierFlags & NSEventModifierFlagOption) ? 2 : 0);
-    if (!modifiers && event.keyCode==111) { if (self.actionHandler) self.actionHandler(RE2TrainerDisableAll); return YES; }
+    if (modifiers==1 && event.keyCode==101) { if (self.actionHandler) self.actionHandler(RE2TrainerDisableAll); return YES; }
     for (NSInteger i=0;i<RE2ActiveFeatureCount();i++) {
         const RE2FeatureInfo *info=RE2FeatureInfoAt(i);
         if (event.keyCode==info->key && modifiers==info->modifiers) { [self activateFeature:i]; return YES; }

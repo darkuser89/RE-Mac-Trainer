@@ -56,7 +56,9 @@ if [[ -f "$ROOT/Resources/AppIcon.png" ]]; then
         size="${spec%%:*}"
         sips --resampleHeightWidth "$size" "$size" -s format png "$ROOT/Resources/AppIcon.png" --out "$ICONSET/${spec#*:}.png" >/dev/null
     done
-    iconutil --convert icns "$ICONSET" --output "$CANDIDATE/Contents/Resources/AppIcon.icns"
+    if ! iconutil --convert icns "$ICONSET" --output "$CANDIDATE/Contents/Resources/AppIcon.icns" 2>/dev/null; then
+        python3 -B "$ROOT/script/pack_iconset.py" "$ICONSET" "$CANDIDATE/Contents/Resources/AppIcon.icns"
+    fi
     plutil -insert CFBundleIconFile -string AppIcon.icns "$CANDIDATE/Contents/Info.plist"
 fi
 codesign --force --sign - --options runtime --timestamp=none "$CANDIDATE"

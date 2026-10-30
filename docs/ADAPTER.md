@@ -64,7 +64,7 @@ abbilden. Raw-Pointer-Adressen allein können durch Wiederverwendung täuschen.
 
 Eine bestätigte Netzwerksitzung löscht die Auswahl. Währenddessen darf kein
 Cheat angewandt werden, auch wenn nur ein Spieler in einer Koop-Sitzung ist.
-F12 und die Rückgabe der Maus bleiben möglich. One-Shots tragen die alte
+⇧F9 und die Rückgabe der Maus bleiben möglich. One-Shots tragen die alte
 Kontextkennung und dürfen nach einem Wechsel nicht nachgeholt werden.
 
 ## 5. Cursor und Klicks

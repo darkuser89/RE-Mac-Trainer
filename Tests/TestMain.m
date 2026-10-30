@@ -385,14 +385,14 @@ static void ledgerTests(void){
     for(NSInteger i=0;i<RE8FeatureCount;i++)for(NSInteger j=i+1;j<RE8FeatureCount;j++){
         const RE2FeatureInfo *a=RE8FeatureInfoAt(i),*b=RE8FeatureInfoAt(j);
         NSCAssert(a->key!=b->key || a->modifiers!=b->modifiers,@"Village hotkeys cannot overlap");
-        NSCAssert(a->key!=111 && b->key!=111,@"F12 remains disable all");
+        NSCAssert((a->key!=101 || a->modifiers!=1) && (b->key!=101 || b->modifiers!=1),@"⇧F9 remains disable all");
     }
     for(NSNumber *f in @[@(RE8Time),@(RE8Money),@(RE8CP),@(RE8Unlock),@(RE8MercGoal)])NSCAssert(RE8FeatureInfoAt(f.integerValue)->oneShot,@"Village durable writes cannot repeat during polling");
     NSCAssert(RE7FeatureCount==15 && RE7FeatureCount<=RE2FeatureCapacity && RE7FeatureInfoAt(-1)==NULL && RE7FeatureInfoAt(15)==NULL,@"RE7 catalog is bounded independently of RE2/3/4");
     for(NSInteger i=0;i<RE7FeatureCount;i++)for(NSInteger j=i+1;j<RE7FeatureCount;j++){
         const RE2FeatureInfo *a=RE7FeatureInfoAt(i),*b=RE7FeatureInfoAt(j);
         NSCAssert(a->key!=b->key || a->modifiers!=b->modifiers,@"RE7 cheat shortcuts are distinct");
-        NSCAssert(a->key!=111 && b->key!=111,@"F12 remains reserved for disable all");
+        NSCAssert((a->key!=101 || a->modifiers!=1) && (b->key!=101 || b->modifiers!=1),@"⇧F9 remains reserved for disable all");
     }
     NSCAssert(RE7FeatureInfoAt(RE7ResetTime)->oneShot && RE7FeatureInfoAt(RE7Scraps)->oneShot,@"RE7 durable writes must never repeat during polling");
     NSCAssert(RE4FeatureCount==36 && RE4FeatureCount<=RE2FeatureCapacity && RE2ActiveFeatureCount()==21,@"RE2 gains one portable-safe action while RE4 capacity remains valid");
@@ -409,15 +409,75 @@ static void ledgerTests(void){
     }
 
 }
+static const RE2FeatureInfo *catalogShortcut(NSInteger game, NSInteger feature) {
+    switch (game) {
+        case 0: return RE2FeatureInfoForGame(feature,NO);
+        case 1: return RE2FeatureInfoForGame(feature,YES);
+        case 2: return RE4FeatureInfoAt(feature);
+        case 3: return RE7FeatureInfoAt(feature);
+        case 4: return RE8FeatureInfoAt(feature);
+        default: return NULL;
+    }
+}
+static void hotkeyConflictTests(void) {
+    const NSInteger counts[]={RE2FeatureCount,RE3FeatureCount,RE4FeatureCount,RE7FeatureCount,RE8FeatureCount};
+    for (NSInteger game=0;game<5;game++) for (NSInteger i=0;i<counts[game];i++) {
+        const RE2FeatureInfo *a=catalogShortcut(game,i);
+        NSCAssert(a && a->key!=103 && a->key!=111,@"no game uses macOS F11 or F12");
+        NSCAssert(!(a->key==101 && a->modifiers==1),@"Shift F9 is reserved for all cheats off");
+        for (NSInteger j=i+1;j<counts[game];j++) {
+            const RE2FeatureInfo *b=catalogShortcut(game,j);
+            NSCAssert(a->key!=b->key || a->modifiers!=b->modifiers,@"game cheats have distinct hotkeys");
+        }
+    }
+    // Same behavior keeps the same physical key and visible label in every game.
+    // Column order: RE2, RE3, RE4, RE7, RE8; -1 means unavailable.
+    const NSInteger shared[][5]={
+        {0,0,1,0,1},       // Health
+        {-1,3,0,-1,0},    // Invulnerability
+        {1,1,5,1,2},       // Ammo
+        {2,2,6,2,3},       // No reload
+        {4,4,22,-1,-1},   // Accuracy
+        {5,5,21,-1,5},    // Recoil
+        {-1,-1,4,3,6},    // Items
+        {15,-1,7,-1,-1},  // Knife
+        {-1,-1,8,5,8},    // Whole-game speed
+        {6,6,-1,6,-1},    // Slow motion
+        {7,7,11,9,9},     // One hit
+        {16,16,9,8,14},   // Player speed
+        {18,18,-1,4,11},  // Highlights
+        {9,9,29,7,12},    // Play-time actions
+        {10,10,27,-1,-1}, // Save counter
+        {-1,-1,20,-1,7},  // Craft without materials
+        {-1,-1,14,-1,15}, // Money balance
+        {-1,-1,15,-1,16}, // Money gain
+        {-1,-1,18,-1,17}, // CP
+        {-1,-1,19,-1,18}, // Bonus-shop unlock
+        {-1,-1,30,-1,19}, // Mercenary timer
+        {-1,-1,34,-1,20}, // Mercenary score
+        {-1,-1,35,-1,21}  // Mercenary multiplier
+    };
+    for (NSUInteger group=0;group<sizeof(shared)/sizeof(shared[0]);group++) {
+        const RE2FeatureInfo *first=NULL;
+        for (NSInteger game=0;game<5;game++) {
+            if (shared[group][game]<0) continue;
+            const RE2FeatureInfo *item=catalogShortcut(game,shared[group][game]);
+            NSCAssert(item,@"shared cheat index exists");
+            if (first) NSCAssert(item->key==first->key && item->modifiers==first->modifiers
+                && [item->shortcut isEqual:first->shortcut],@"matching cheats share one visible hotkey across games");
+            else first=item;
+        }
+    }
+}
 static void highlightStopTests(void){
     // This feature owns native drawing requests, not entries in the value ledger.
-    // F12/context release must also drop its weak owner/payload bindings.
+    // ⇧F9/context release must also drop its weak owner/payload bindings.
     RE2NativeAdapter *adapter=[RE2NativeAdapter new];
     NSMutableDictionary *bindings=[NSMutableDictionary dictionaryWithObject:[NSObject new] forKey:[NSValue valueWithPointer:(void *)1]];
     [adapter setValue:bindings forKey:@"highlightOwners"];
     [adapter setValue:@3 forKey:@"highlightConfirmed"];
     [adapter releaseEffects];
-    NSCAssert(!bindings.count && [[adapter valueForKey:@"highlightConfirmed"] unsignedIntegerValue]==0,@"F12/context release clears drawing owners without a value-ledger entry");
+    NSCAssert(!bindings.count && [[adapter valueForKey:@"highlightConfirmed"] unsignedIntegerValue]==0,@"⇧F9/context release clears drawing owners without a value-ledger entry");
 }
 static void drain(void){for(int i=0;i<16;i++)[NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.005]];}
 static NSDictionary *savedSelection(void){
@@ -454,7 +514,7 @@ static void selectionTests(void){
     a.mode=RE2SessionSolo;[b poll];drain();NSCAssert(!b.state.selectionPending && b.state.features[0].active && b.state.features[RE2FeatureSlowMotion].value==0.4 && a.oneShots==0,@"first valid owner restores selected toggles and values without replaying one-shots");
     a.mode=RE2SessionLoading;[b poll];drain();a.mode=RE2SessionSolo;[b poll];drain();NSCAssert(b.state.features[0].active,@"later loading retains current choices instead of reimporting old startup data");
     a=[RE2TestAdapter new];a.mode=RE2SessionLoading;b=[[RE2GameBridge alloc]initWithAdapter:a readOnly:NO restoreSelection:saved];[b performAction:RE2TrainerDisableAll];drain();a.mode=RE2SessionSolo;[b poll];drain();
-    NSCAssert(!b.state.features[0].wanted && !b.state.selectionPending,@"F12 cancels even a pending startup restore");
+    NSCAssert(!b.state.features[0].wanted && !b.state.selectionPending,@"⇧F9 cancels even a pending startup restore");
     a=[RE2TestAdapter new];a.mode=RE2SessionNetwork;b=[[RE2GameBridge alloc]initWithAdapter:a readOnly:NO restoreSelection:saved];[b poll];drain();a.mode=RE2SessionSolo;[b poll];drain();
     NSCAssert(!b.state.features[0].wanted,@"network entry permanently cancels startup restoration");
     b=[[RE2GameBridge alloc]initWithAdapter:a readOnly:YES restoreSelection:saved];[b poll];drain();NSCAssert(!b.state.selectionPending && !b.state.features[0].wanted,@"inspection cannot import cheat selections");
@@ -476,13 +536,13 @@ static void bridgeTests(void){
  a.mode=RE2SessionNetwork;[b poll];[b setOverlayInteraction:YES];drain();NSCAssert(!b.state.features[0].wanted && b.state.overlayMouseActive,@"network clears cheats and preserves stop/UI access");
  [b performFeature:RE2FeatureSaveCount];drain();NSCAssert(a.oneShots==before,@"network rejects one-shots");
  a.mode=RE2SessionSolo;[b poll];drain();[b performFeature:RE2FeatureHealth];drain();
- [b poll];for(int i=0;i<24;i++)[b performFeature:RE2FeatureSaveCount];[b performAction:RE2TrainerDisableAll];a.mode=RE2SessionLoading;drain();NSCAssert(!b.state.features[0].wanted,@"F12 wins over full queue during loading");
+ [b poll];for(int i=0;i<24;i++)[b performFeature:RE2FeatureSaveCount];[b performAction:RE2TrainerDisableAll];a.mode=RE2SessionLoading;drain();NSCAssert(!b.state.features[0].wanted,@"⇧F9 wins over full queue during loading");
  RE2GameBridge *u=[[RE2GameBridge alloc]initWithAdapter:[RE2UnsupportedAdapter new]];[u poll];[u performFeature:RE2FeatureHealth];drain();NSCAssert(!u.state.ready && !u.state.features[0].active,@"unsupported adapter never applies effects");
  RE2TestAdapter *probe=[RE2TestAdapter new];RE2GameBridge *inspection=[[RE2GameBridge alloc]initWithAdapter:probe readOnly:YES];
  [inspection poll];drain();[inspection performFeature:RE2FeatureHealth];[inspection performFeature:RE2FeatureSaveCount];[inspection setValue:0.2 forFeature:RE2FeatureSlowMotion];[inspection setOverlayInteraction:YES];drain();
  NSCAssert(!inspection.state.ready && !inspection.state.features[0].wanted && !inspection.state.features[0].active && probe.applications==0 && probe.oneShots==0,@"inspection reads real context but cannot call effect or one-shot paths");
  NSCAssert(inspection.state.overlayMouseActive && inspection.state.features[RE2FeatureSlowMotion].value==0.5,@"inspection allows overlay interaction while rejecting effect values");
- [inspection performAction:RE2TrainerDisableAll];drain();NSCAssert(probe.applications==0 && probe.oneShots==0,@"F12 keeps inspection free of effect applications");
+ [inspection performAction:RE2TrainerDisableAll];drain();NSCAssert(probe.applications==0 && probe.oneShots==0,@"⇧F9 keeps inspection free of effect applications");
 }
 static NSEvent *mouse(NSWindow *window,NSView *view,NSPoint p,NSEventType type){return [NSEvent mouseEventWithType:type location:[view convertPoint:p toView:nil] modifierFlags:0 timestamp:0 windowNumber:window.windowNumber context:nil eventNumber:1 clickCount:1 pressure:1];}
 static void uiTests(void){
@@ -510,24 +570,38 @@ static void uiTests(void){
     [r togglePanel:nil];NSCAssert(r.panel.hidden && !r.wantsMouseInteraction,@"hide gives game input back");
     NSCAssert([r handleMouseEvent:mouse(w,firstRow,NSMakePoint(244,10),NSEventTypeLeftMouseUp)],@"a click begun in UI never leaks its release to the game after hiding");
     NSCAssert(![r handleMouseEvent:mouse(w,firstRow,NSMakePoint(244,10),NSEventTypeLeftMouseDown)],@"hidden UI passes new gameplay clicks through");
-    s.ready=NO;[r updateState:s];__block NSInteger stops=0;r.actionHandler=^(RE2TrainerAction action){NSCAssert(action==RE2TrainerDisableAll,@"F12 stop");stops++;};
-    NSEvent *f12=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:111];[r handleEvent:f12];NSCAssert(stops==1,@"F12 works during loading");
+    s.ready=NO;[r updateState:s];__block NSInteger stops=0;r.actionHandler=^(RE2TrainerAction action){NSCAssert(action==RE2TrainerDisableAll,@"⇧F9 stop");stops++;};
+    NSEvent *allOff=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagShift timestamp:0 windowNumber:0 context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:101];[r handleEvent:allOff];NSCAssert(stops==1,@"⇧F9 works during loading");
+    NSEvent *systemF12=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:111];
+    NSCAssert(![r handleEvent:systemF12] && stops==1,@"macOS F12 is not consumed by the trainer");
     RE2OverlayShortcuts *keys=[RE2OverlayShortcuts new];keys.enabled=YES;[keys setRegistered:YES shortcut:RE2ShortcutPanel];__block int toggles=0;keys.handler=^(RE2OverlayShortcut action){(void)action;toggles++;};
     [keys nativeShortcut:RE2ShortcutPanel pressed:YES];[keys nativeShortcut:RE2ShortcutPanel pressed:YES];NSCAssert(toggles==1,@"native repeats cannot toggle twice");[keys nativeShortcut:RE2ShortcutPanel pressed:NO];[keys nativeShortcut:RE2ShortcutPanel pressed:YES];NSCAssert(toggles==2,@"fresh press toggles");
     keys.enabled=NO;NSCAssert(![keys nativeShortcut:RE2ShortcutPanel pressed:YES],@"inactive app owns no hotkeys");
     NSEvent *toggle=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:10];
     BOOL visible=r.panelVisible;[r handleEvent:toggle];NSCAssert(r.panelVisible && r.wantsMouseInteraction,@"Command caret opens and automatically requests mouse input");
     [r handleEvent:toggle];NSCAssert(r.panelVisible==visible && !r.wantsMouseInteraction,@"Command caret hides and releases mouse input together");
+    for(NSNumber *extra in @[@(NSEventModifierFlagOption),@(NSEventModifierFlagShift),@(NSEventModifierFlagControl)]) {
+        NSEvent *conflict=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand|extra.unsignedIntegerValue timestamp:0 windowNumber:w.windowNumber context:nil characters:@"^" charactersIgnoringModifiers:@"^" isARepeat:NO keyCode:10];
+        NSCAssert(RE2ShortcutForEvent(conflict)<0 && ![r handleEvent:conflict],@"Command-Option/Shift/Control caret is not a trainer shortcut");
+    }
     NSEvent *commandF10=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagCommand timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:109];
     NSCAssert(RE2ShortcutForEvent(commandF10)<0 && ![r handleEvent:commandF10],@"Command F10 is not an overlay shortcut");
-    s.ready=YES;[r updateState:s];__block NSInteger timeActions=0;r.featureHandler=^(RE2Feature f){NSCAssert(f==RE2FeatureGameTime,@"F10 belongs to game time");timeActions++;};
+    s.ready=YES;[r updateState:s];__block NSInteger hitActions=0;r.featureHandler=^(RE2Feature f){NSCAssert(f==RE2FeatureOneHit,@"F10 belongs to one-hit kills");hitActions++;};
     NSEvent *plainF10=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:109];
-    [r handleEvent:plainF10];NSCAssert(timeActions==1 && r.panelVisible==visible,@"F10 runs its cheat without toggling the overlay");
+    [r handleEvent:plainF10];NSCAssert(hitActions==1 && r.panelVisible==visible,@"F10 runs the common one-hit cheat without toggling the overlay");
+    __block NSInteger timeActions=0;r.featureHandler=^(RE2Feature f){NSCAssert(f==RE2FeatureGameTime,@"Shift F8 belongs to play time");timeActions++;};
+    NSEvent *timeKey=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagShift timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:100];
+    NSCAssert([r handleEvent:timeKey] && timeActions==1,@"Shift F8 reaches the moved time action");
+    __block NSInteger saveActions=0;r.featureHandler=^(RE2Feature f){NSCAssert(f==RE2FeatureSaveCount,@"Shift F10 owns save count");saveActions++;};
+    NSEvent *saveKey=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:NSEventModifierFlagShift timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:109];
+    NSCAssert([r handleEvent:saveKey] && saveActions==1,@"Shift F10 reaches the moved cheat");
+    NSEvent *systemF11=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:103];
+    NSCAssert(![r handleEvent:systemF11] && saveActions==1,@"macOS F11 is not consumed by the trainer");
     NSCAssert(!RE2OverlayMessageOptions(RE2OverlayMessage(@{},@"A",12),@"B",12),@"foreign settings sessions ignored");
     NSDictionary *launch=RE2OverlayOptionsForLaunch(@{@"visible":@YES,@"badge":@YES,@"mouse":@NO,@"scale":@1.1,@"position":@"center"});
     NSCAssert(![launch[@"visible"] boolValue] && ![launch[@"badge"] boolValue] && [launch[@"mouse"] boolValue],@"every fresh launch overrides saved visible/badge and obsolete mouse-off preferences");
     NSCAssert([launch[@"scale"] isEqual:@1.1] && [launch[@"position"] isEqual:@"center"],@"launch keeps panel geometry");
-    [r applyOverlayOptions:launch];[r toggleMouseInteraction];[r toggleMouseInteraction];NSCAssert(r.panelVisible && r.wantsMouseInteraction,@"former mouse shortcut only reveals interactive UI and cannot disable automatic mouse input");
+    [r applyOverlayOptions:launch];[r togglePanel:nil];NSCAssert(r.panelVisible && r.wantsMouseInteraction,@"the sole overlay shortcut opens UI with mouse input");
     NSEvent *escape=[NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:w.windowNumber context:nil characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:53];
     NSCAssert([r handleEvent:escape] && !r.panelVisible && !r.wantsMouseInteraction,@"Escape closes UI and releases mouse without another shortcut");
     [w close];
@@ -568,4 +642,4 @@ void MTControlRunTests(void);
 void MTPresentationRunTests(void);
 int main(int argc,const char *argv[]){@autoreleasepool{
     if(argc==2 && !strcmp(argv[1],"--presentation")){MTPresentationRunTests();return 0;}
-    RE7RunOwnershipTests();NSCAssert(argc==2,@"config argument");re4MathTests();re2MouseTests();re2EnemyRegistrationTests();re2SaveCountTests();portableSafeTests();re2SpeedTests();re2ContinuousTempoTests();otherGameMouseTests();re4MouseTests();bridgeTests();MTControlRunTests();selectionTests();ledgerTests();highlightStopTests();profileTests([NSString stringWithUTF8String:argv[1]]);uiTests();puts("RE2/3/4/7 checks passed: shared originals, owner/context transitions, readback failures, stale actions, loading/F12, network gate, UI, shortcuts, profiles, bounded memory and reward/time arithmetic.");}return 0;}
+    RE7RunOwnershipTests();NSCAssert(argc==2,@"config argument");re4MathTests();re2MouseTests();re2EnemyRegistrationTests();re2SaveCountTests();portableSafeTests();re2SpeedTests();re2ContinuousTempoTests();otherGameMouseTests();re4MouseTests();bridgeTests();MTControlRunTests();selectionTests();ledgerTests();hotkeyConflictTests();highlightStopTests();profileTests([NSString stringWithUTF8String:argv[1]]);uiTests();puts("RE2/3/4/7 checks passed: shared originals, owner/context transitions, readback failures, stale actions, loading/⇧F9, network gate, UI, shortcuts, profiles, bounded memory and reward/time arithmetic.");}return 0;}
